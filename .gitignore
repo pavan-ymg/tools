@@ -44,3 +44,5 @@ next-env.d.ts
 # to know which migrations exist, and a real deploy runs these files
 # against production. They are not a build artifact.
 .neon
+
+.vercel

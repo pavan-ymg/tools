@@ -15,6 +15,20 @@
       "when": 1787861127101,
       "tag": "0001_conscious_dagger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787864572085,
+      "tag": "0002_gray_snowbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787864607116,
+      "tag": "0003_talented_centennial",
+      "breakpoints": true
     }
   ]
 }

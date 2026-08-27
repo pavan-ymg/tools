@@ -99,3 +99,35 @@ export const authTokens = pgTable("auth_tokens", {
 }, (table) => [
   uniqueIndex("auth_tokens_hash_idx").on(table.tokenHash),
 ]);
+
+// The Lead Feed's data source (§5.1/§5.2, plan §3.2). Populated by the
+// tools app PULLING from core-api's read-only GET /internal/leads?since=
+// endpoint and upserting here — core-api never writes to this table or
+// even knows it exists. sourceId is the original Mongo _id (globally
+// unique), so upserts are idempotent and this table doubles as the
+// backfill target. Also what the Call Intake "LP form received" badge
+// (§6.3) matches against by phone/email.
+export const leadIndex = pgTable("lead_index", {
+  id: serial("id").primaryKey(),
+  sourceId: text("source_id").notNull(),
+  name: text("name").notNull(),
+  phone: text("phone").notNull(),
+  email: text("email").notNull(),
+  domain: text("domain").notNull(),
+  slug: text("slug").notNull(),
+  state: text("state").notNull().default(""),
+  leadCreatedAt: timestamp("lead_created_at", { withTimezone: true }).notNull(),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("lead_index_source_id_idx").on(table.sourceId),
+]);
+
+// Contact fields on the Lead Feed are masked by default, reveal-on-click
+// (§5.3 — PII on an internet-facing page). Every reveal is logged here,
+// never deleted, so "who looked at this lead's number" is answerable.
+export const leadReveals = pgTable("lead_reveals", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  leadIndexId: integer("lead_index_id").notNull().references(() => leadIndex.id, { onDelete: "cascade" }),
+  revealedAt: timestamp("revealed_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { changePasswordAction } from "./actions";
+import PasswordField from "@/components/PasswordField";
 
 export default function ChangePasswordPage() {
   const [error, formAction, pending] = useActionState(changePasswordAction, undefined);
@@ -35,39 +36,8 @@ export default function ChangePasswordPage() {
           before continuing.
         </p>
 
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>New password</span>
-          <input
-            name="newPassword"
-            type="password"
-            required
-            minLength={12}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 6,
-              border: "1px solid var(--glass-border)",
-              background: "rgba(0,0,0,0.2)",
-              color: "var(--text-primary)",
-            }}
-          />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Confirm password</span>
-          <input
-            name="confirmPassword"
-            type="password"
-            required
-            minLength={12}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 6,
-              border: "1px solid var(--glass-border)",
-              background: "rgba(0,0,0,0.2)",
-              color: "var(--text-primary)",
-            }}
-          />
-        </label>
+        <PasswordField name="newPassword" label="New password" minLength={12} />
+        <PasswordField name="confirmPassword" label="Confirm password" minLength={12} />
 
         {error && <p style={{ color: "var(--danger)", fontSize: 13 }}>{error}</p>}
 

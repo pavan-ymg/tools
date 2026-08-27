@@ -3,6 +3,7 @@
 import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { loginAction } from "./actions";
+import PasswordField from "@/components/PasswordField";
 
 // useSearchParams() needs a Suspense boundary above it during static
 // generation — the default export just provides that; LoginForm has
@@ -67,21 +68,7 @@ function LoginForm() {
           />
         </label>
 
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Password</span>
-          <input
-            name="password"
-            type="password"
-            required
-            style={{
-              padding: "8px 10px",
-              borderRadius: 6,
-              border: "1px solid var(--glass-border)",
-              background: "rgba(0,0,0,0.2)",
-              color: "var(--text-primary)",
-            }}
-          />
-        </label>
+        <PasswordField name="password" label="Password" />
 
         {error && (
           <p style={{ color: "var(--danger)", fontSize: 13 }}>{error}</p>
