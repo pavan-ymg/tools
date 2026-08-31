@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { leadIndex } from "@/db/schema";
 
@@ -17,17 +17,27 @@ import { leadIndex } from "@/db/schema";
  * stores whatever raw format the LP form happened to submit (dashes,
  * parens, spaces all vary), so a plain string-equality match would miss
  * most real matches.
+ *
+ * Uses the query builder (not raw db.execute) specifically so the
+ * result comes back through Drizzle's normal column mapping — a raw
+ * SQL result returns actual Postgres column names (lead_created_at),
+ * not the camelCase TS property (leadCreatedAt) the rest of the code
+ * expects. Caught this in testing: it silently returned `undefined`
+ * for every field read off a raw-SQL row.
  */
 export async function findMatchingLead(phone: string, email: string) {
   const normalizedPhone = phone.replace(/\D/g, "");
   if (!normalizedPhone && !email) return null;
 
-  const result = await db.execute(sql`
-    SELECT * FROM lead_index
-    WHERE (${normalizedPhone} != '' AND regexp_replace(phone, '\\D', '', 'g') = ${normalizedPhone})
-       OR (${email} != '' AND lower(email) = lower(${email}))
-    LIMIT 1
-  `);
+  const conditions = [];
+  if (normalizedPhone) {
+    conditions.push(sql`regexp_replace(${leadIndex.phone}, '\D', '', 'g') = ${normalizedPhone}`);
+  }
+  if (email) {
+    conditions.push(sql`lower(${leadIndex.email}) = lower(${email})`);
+  }
+  if (conditions.length === 0) return null;
 
-  return (result.rows[0] as typeof leadIndex.$inferSelect | undefined) ?? null;
+  const [match] = await db.select().from(leadIndex).where(or(...conditions)).limit(1);
+  return match ?? null;
 }

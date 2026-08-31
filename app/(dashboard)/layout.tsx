@@ -65,6 +65,9 @@ export default async function DashboardLayout({
         <Link href="/intake" style={{ color: "var(--text-secondary)" }}>
           Call Intake
         </Link>
+        <Link href="/leaderboard" style={{ color: "var(--text-secondary)" }}>
+          Leaderboard
+        </Link>
         {canManageUsers && (
           <Link href="/admin/users" style={{ color: "var(--text-secondary)" }}>
             Users
