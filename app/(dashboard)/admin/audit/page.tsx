@@ -15,6 +15,7 @@ const ACTION_LABELS: Record<string, string> = {
   role_created: "Created role",
   role_permissions_updated: "Updated role permissions",
   role_deleted: "Deleted role",
+  user_permissions_overridden: "Edited user's individual permissions",
 };
 
 export default async function AuditLogPage() {

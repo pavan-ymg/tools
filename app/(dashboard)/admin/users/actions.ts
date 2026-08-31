@@ -4,8 +4,8 @@ import { headers } from "next/headers";
 import { eq, sql, and, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, roles, userRoles } from "@/db/schema";
-import { can } from "@/lib/permissions";
+import { users, roles, userRoles, permissions, userPermissionOverrides } from "@/db/schema";
+import { can, loadRoleGrants, loadOverrides, getScope, SCOPE_RANK, OVERRIDE_RANK, type Scope, type OverrideScope } from "@/lib/permissions";
 import { createAuthToken } from "@/lib/auth-tokens";
 import { sendInviteEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
@@ -232,4 +232,128 @@ export async function deleteUserAction(id: number): Promise<{ error?: string }> 
       error: "Can't delete — this user owns or has reviewed intake records. Deactivate instead, or reassign those records first.",
     };
   }
+}
+
+// Gate for the per-user permission override editor. Same gate as
+// editing a role's own permission matrix (admin/roles/actions.ts) —
+// this screen is the same capability, just scoped to one person
+// instead of a role.
+async function requireRolesManage(): Promise<number> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not signed in.");
+  const userId = Number(session.user.id);
+  if (!(await can(userId, "roles.manage"))) throw new Error("Not permitted.");
+  return userId;
+}
+
+export type PermissionOverrideRow = {
+  id: number;
+  key: string;
+  description: string;
+  roleScope: Scope | null;
+  overrideScope: OverrideScope | null; // null = "inherit role default"
+  managerCapScope: Scope | null; // null = no manager, i.e. no cap
+};
+
+/**
+ * Everything the override editor page needs for one target user: the
+ * full permission catalogue, what their role(s) grant by default, any
+ * override already on file, and the cap their direct manager's own
+ * access imposes (§ per-user overrides — "can not surpass the access
+ * more than its senior"). Read-only — the write side is
+ * updateUserPermissionOverridesAction below.
+ */
+export async function getUserPermissionOverrideData(targetUserId: number): Promise<{
+  targetIsSuperAdmin: boolean;
+  managerName: string | null;
+  rows: PermissionOverrideRow[];
+}> {
+  const [target] = await db.select().from(users).where(eq(users.id, targetUserId)).limit(1);
+  const [allPermissions, { isSuperAdmin: targetIsSuperAdmin, grants: roleGrants }, overrides] = await Promise.all([
+    db.select().from(permissions).orderBy(permissions.key),
+    loadRoleGrants(targetUserId),
+    loadOverrides(targetUserId),
+  ]);
+
+  let managerName: string | null = null;
+  if (target?.managerId) {
+    const [manager] = await db.select({ name: users.name }).from(users).where(eq(users.id, target.managerId)).limit(1);
+    managerName = manager?.name ?? null;
+  }
+
+  const rows: PermissionOverrideRow[] = await Promise.all(
+    allPermissions.map(async (p) => ({
+      id: p.id,
+      key: p.key,
+      description: p.description,
+      roleScope: roleGrants.get(p.key) ?? null,
+      overrideScope: overrides.get(p.key) ?? null,
+      managerCapScope: target?.managerId ? await getScope(target.managerId, p.key) : null,
+    }))
+  );
+
+  return { targetIsSuperAdmin, managerName, rows };
+}
+
+/**
+ * Writes the submitted overrides, clamping each one to the target's
+ * DIRECT manager's own effective scope for that permission — an
+ * override widens or narrows access WITHIN what's already above this
+ * user, never past it (Pavan, confirmed 2026-08-31: "user can not
+ * surpass the access more that its senior"). No manager on file (or the
+ * manager holds no grant at all for a permission the target still
+ * somehow has via role) means no cap / cap at "none" respectively.
+ * A submitted value of "" (the "Use role default" option) deletes any
+ * existing override row instead of writing one.
+ */
+export async function updateUserPermissionOverridesAction(targetUserId: number, formData: FormData): Promise<void> {
+  const actorId = await requireRolesManage();
+
+  const [target] = await db.select().from(users).where(eq(users.id, targetUserId)).limit(1);
+  if (!target) return;
+
+  // The one account meant to bypass every check in code (lib/permissions.ts)
+  // can't be narrowed or widened by an override — same reasoning as
+  // super_admin being unassignable/unrevokable through the role checkboxes.
+  // The page itself already blocks reaching this form for a super_admin
+  // target; this is just the server-side backstop.
+  if (await isSuperAdmin(targetUserId)) return;
+
+  const allPermissions = await db.select().from(permissions);
+  const changes: Record<string, OverrideScope> = {};
+
+  for (const perm of allPermissions) {
+    const raw = formData.get(`override_${perm.id}`) as string | null;
+
+    if (!raw) {
+      await db
+        .delete(userPermissionOverrides)
+        .where(and(eq(userPermissionOverrides.userId, targetUserId), eq(userPermissionOverrides.permissionId, perm.id)));
+      continue;
+    }
+
+    let scope = raw as OverrideScope;
+
+    if (target.managerId) {
+      const managerScope = await getScope(target.managerId, perm.key);
+      const managerRank = managerScope ? SCOPE_RANK[managerScope] : -1;
+      if (OVERRIDE_RANK[scope] > managerRank) {
+        scope = (Object.keys(OVERRIDE_RANK) as OverrideScope[]).find((s) => OVERRIDE_RANK[s] === managerRank) ?? "none";
+      }
+    }
+
+    await db
+      .insert(userPermissionOverrides)
+      .values({ userId: targetUserId, permissionId: perm.id, scope })
+      .onConflictDoUpdate({
+        target: [userPermissionOverrides.userId, userPermissionOverrides.permissionId],
+        set: { scope },
+      });
+
+    changes[perm.key] = scope;
+  }
+
+  await logAudit(actorId, "user_permissions_overridden", "user", targetUserId, `${target.name} (${target.email})`, {
+    overrides: changes,
+  });
 }

@@ -18,6 +18,11 @@ import {
 // all  -> everyone
 export const scopeEnum = pgEnum("scope", ["own", "team", "all"]);
 
+// Same three scopes plus "none" — a per-user override can explicitly
+// revoke a permission the user's role would otherwise grant, which
+// "own"/"team"/"all" alone can't express.
+export const overrideScopeEnum = pgEnum("override_scope", ["own", "team", "all", "none"]);
+
 export const tokenTypeEnum = pgEnum("token_type", ["invite", "reset"]);
 
 // Source of truth for identity is HRMS; hrmsEmployeeId is the sync key.
@@ -99,6 +104,23 @@ export const userRoles = pgTable("user_roles", {
   roleId: integer("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
 }, (table) => [
   primaryKey({ columns: [table.userId, table.roleId] }),
+]);
+
+// A per-user override always wins over whatever the user's role(s)
+// grant for that permission — including "none", which explicitly
+// revokes a permission the role would otherwise give. Missing row =
+// no override, fall back to the role grant. Write-time rule (enforced
+// in the action, not the DB): an override can never exceed the user's
+// direct manager's own effective scope for that permission — the point
+// is narrowing or widening WITHIN what's already above them, not
+// handing out access nobody above them has.
+export const userPermissionOverrides = pgTable("user_permission_overrides", {
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  permissionId: integer("permission_id").notNull().references(() => permissions.id, { onDelete: "cascade" }),
+  scope: overrideScopeEnum("scope").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.userId, table.permissionId] }),
 ]);
 
 // Backs invite links, password resets, and any future magic-link flow —
@@ -222,7 +244,7 @@ export const intakeEvents = pgTable("intake_events", {
 // taken at write time, not a live join that breaks once someone's gone.
 export const auditActionEnum = pgEnum("audit_action", [
   "user_invited", "user_updated", "user_deactivated", "user_reactivated", "user_deleted", "user_force_reset",
-  "role_created", "role_permissions_updated", "role_deleted",
+  "role_created", "role_permissions_updated", "role_deleted", "user_permissions_overridden",
 ]);
 
 export const auditLog = pgTable("audit_log", {

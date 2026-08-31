@@ -1,16 +1,20 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 
-type Scope = "own" | "team" | "all";
+export type Scope = "own" | "team" | "all";
+export type OverrideScope = Scope | "none";
 
-const SCOPE_RANK: Record<Scope, number> = { own: 0, team: 1, all: 2 };
+export const SCOPE_RANK: Record<Scope, number> = { own: 0, team: 1, all: 2 };
+export const OVERRIDE_RANK: Record<OverrideScope, number> = { none: -1, own: 0, team: 1, all: 2 };
 
 /**
- * All permission grants for a user, across every role they hold, plus
- * whether any of those roles is the hardcoded super_admin escape hatch.
- * One query, cached per request by the caller if needed.
+ * Role-derived grants only — every permission across every role a user
+ * holds, plus whether any of those roles is the hardcoded super_admin
+ * escape hatch. Exported so the per-user override editor (§ user
+ * permission overrides) can show "role default" alongside the override
+ * for each capability.
  */
-async function loadGrants(userId: number) {
+export async function loadRoleGrants(userId: number): Promise<{ isSuperAdmin: boolean; grants: Map<string, Scope> }> {
   const result = await db.execute(sql`
     SELECT p.key AS key, rp.scope AS scope, r.is_system AS is_system, r.slug AS slug
     FROM user_roles ur
@@ -35,6 +39,46 @@ async function loadGrants(userId: number) {
     const existing = grants.get(row.key);
     if (!existing || SCOPE_RANK[row.scope] > SCOPE_RANK[existing]) {
       grants.set(row.key, row.scope);
+    }
+  }
+
+  return { isSuperAdmin, grants };
+}
+
+/**
+ * This user's individual permission overrides, keyed by permission key —
+ * a row here always wins over whatever loadRoleGrants() computed,
+ * including "none" (an explicit revoke). Exported for the same reason
+ * as loadRoleGrants().
+ */
+export async function loadOverrides(userId: number): Promise<Map<string, OverrideScope>> {
+  const result = await db.execute(sql`
+    SELECT p.key AS key, upo.scope AS scope
+    FROM user_permission_overrides upo
+    INNER JOIN permissions p ON p.id = upo.permission_id
+    WHERE upo.user_id = ${userId}
+  `);
+  const rows = result.rows as Array<{ key: string; scope: OverrideScope }>;
+  return new Map(rows.map((r) => [r.key, r.scope]));
+}
+
+/**
+ * Role grants with per-user overrides layered on top — the one thing
+ * can()/getScope() actually check. Never exported directly; the two
+ * pieces above are exported separately for the override editor, which
+ * needs to see role-default and override as distinct values, not
+ * already merged.
+ */
+async function loadGrants(userId: number): Promise<{ isSuperAdmin: boolean; grants: Map<string, Scope> }> {
+  const { isSuperAdmin, grants } = await loadRoleGrants(userId);
+  if (isSuperAdmin) return { isSuperAdmin, grants };
+
+  const overrides = await loadOverrides(userId);
+  for (const [key, scope] of overrides) {
+    if (scope === "none") {
+      grants.delete(key);
+    } else {
+      grants.set(key, scope);
     }
   }
 

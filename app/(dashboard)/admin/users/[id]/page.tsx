@@ -119,6 +119,14 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
       </form>
 
       <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid var(--glass-border)" }}>
+        {!targetIsSuperAdmin && (
+          <Link
+            href={`/admin/users/${id}/permissions`}
+            style={{ fontSize: 13, color: "var(--accent)", display: "inline-block", marginBottom: 16 }}
+          >
+            Edit individual permissions →
+          </Link>
+        )}
         <ForceResetButton userId={id} />
       </div>
     </main>
