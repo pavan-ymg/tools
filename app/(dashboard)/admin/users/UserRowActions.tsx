@@ -3,14 +3,24 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleUserActiveAction, deleteUserAction } from "./actions";
+import ConfirmDialog from "@/app/(dashboard)/ConfirmDialog";
 
 export default function UserRowActions({ userId, name, isActive }: { userId: number; name: string; isActive: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirming, setConfirming] = useState<"deactivate" | "delete" | null>(null);
   const router = useRouter();
 
   function toggleActive() {
-    if (isActive && !window.confirm(`Deactivate ${name}? They'll lose access immediately.`)) return;
+    if (isActive) {
+      setConfirming("deactivate");
+      return;
+    }
+    runToggle();
+  }
+
+  function runToggle() {
+    setConfirming(null);
     setError(null);
     startTransition(async () => {
       const result = await toggleUserActiveAction(userId, !isActive);
@@ -20,7 +30,11 @@ export default function UserRowActions({ userId, name, isActive }: { userId: num
   }
 
   function handleDelete() {
-    if (!window.confirm(`Permanently delete ${name}? This can't be undone.`)) return;
+    setConfirming("delete");
+  }
+
+  function runDelete() {
+    setConfirming(null);
     setError(null);
     startTransition(async () => {
       const result = await deleteUserAction(userId);
@@ -68,6 +82,23 @@ export default function UserRowActions({ userId, name, isActive }: { userId: num
         </button>
       </div>
       {error && <p style={{ color: "var(--danger)", fontSize: 12 }}>{error}</p>}
+
+      <ConfirmDialog
+        open={confirming === "deactivate"}
+        message={`Deactivate ${name}? They'll lose access immediately.`}
+        confirmLabel="Deactivate"
+        danger
+        onConfirm={runToggle}
+        onCancel={() => setConfirming(null)}
+      />
+      <ConfirmDialog
+        open={confirming === "delete"}
+        message={`Permanently delete ${name}? This can't be undone.`}
+        confirmLabel="Delete"
+        danger
+        onConfirm={runDelete}
+        onCancel={() => setConfirming(null)}
+      />
     </div>
   );
 }

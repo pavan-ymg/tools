@@ -19,10 +19,19 @@ const STAGE_LABELS: Record<string, string> = {
   dead: "Dead",
 };
 
+const PAGE_SIZES = [10, 20, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZES)[number];
+const DEFAULT_PAGE_SIZE: PageSize = 20;
+
+function parsePageSize(raw: string | undefined): PageSize {
+  const n = Number(raw);
+  return (PAGE_SIZES as readonly number[]).includes(n) ? (n as PageSize) : DEFAULT_PAGE_SIZE;
+}
+
 export default async function IntakeListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ form?: string; q?: string; stage?: string; due?: string }>;
+  searchParams: Promise<{ form?: string; q?: string; stage?: string; due?: string; page?: string; pageSize?: string }>;
 }) {
   const session = await auth();
   const userId = Number(session!.user.id);
@@ -38,9 +47,10 @@ export default async function IntakeListPage({
     );
   }
 
-  const { form: formType, q, stage: stageFilter, due } = await searchParams;
+  const { form: formType, q, stage: stageFilter, due, page: pageParam, pageSize: pageSizeParam } = await searchParams;
   const query = q?.trim();
   const dueOnly = due === "1";
+  const pageSize = parsePageSize(pageSizeParam);
 
   // No campaign picked yet — each client's form has its own answer
   // shape (§6.6), so a blended list across campaigns doesn't mean
@@ -139,7 +149,24 @@ export default async function IntakeListPage({
 
   listQuery = listQuery.where(and(...filters));
 
-  const rows = await listQuery.orderBy(desc(intakeRecords.createdAt)).limit(100);
+  const [{ count: totalCount }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(intakeRecords)
+    .where(and(...filters));
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const page = Math.min(Math.max(1, Number(pageParam) || 1), totalPages);
+
+  const rows = await listQuery
+    .orderBy(desc(intakeRecords.createdAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+
+  const pageUrl = (targetPage: number, targetPageSize: PageSize = pageSize) =>
+    `/intake?form=${formType}&page=${targetPage}&pageSize=${targetPageSize}` +
+    (query ? `&q=${encodeURIComponent(query)}` : "") +
+    (stageFilter ? `&stage=${stageFilter}` : "") +
+    (dueOnly ? "&due=1" : "");
 
   return (
     <main style={{ padding: 32 }}>
@@ -186,6 +213,7 @@ export default async function IntakeListPage({
 
       <form method="GET" style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <input type="hidden" name="form" value={formType} />
+        <input type="hidden" name="pageSize" value={pageSize} />
         <input
           name="q"
           type="text"
@@ -229,6 +257,32 @@ export default async function IntakeListPage({
           </a>
         )}
       </form>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+          <span style={{ color: "var(--text-secondary)" }}>Show:</span>
+          {PAGE_SIZES.map((size) => (
+            <Link
+              key={size}
+              href={pageUrl(1, size)}
+              className="chip"
+              style={{
+                padding: "4px 10px",
+                borderRadius: 6,
+                border: "1px solid var(--glass-border)",
+                background: pageSize === size ? "var(--accent)" : "transparent",
+                color: pageSize === size ? "var(--accent-text)" : "var(--text-secondary)",
+                textDecoration: "none",
+              }}
+            >
+              {size}
+            </Link>
+          ))}
+        </div>
+        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+          {totalCount === 0 ? "No records" : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalCount)} of ${totalCount}`}
+        </span>
+      </div>
 
       <div style={{ overflowX: "auto", border: "1px solid var(--glass-border)", borderRadius: 8 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -276,9 +330,47 @@ export default async function IntakeListPage({
           </tbody>
         </table>
         {rows.length === 0 && (
-          <p style={{ padding: 24, color: "var(--text-secondary)", fontSize: 13 }}>No intake records yet.</p>
+          <p style={{ padding: 24, color: "var(--text-secondary)", fontSize: 13 }}>
+            {totalCount === 0 && !query && !stageFilter && !dueOnly ? "No intake records yet." : "No records match these filters."}
+          </p>
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}>
+          {page > 1 ? (
+            <Link href={pageUrl(1)} className="text-link" style={{ color: "var(--accent)", fontSize: 13 }}>
+              « First
+            </Link>
+          ) : (
+            <span style={{ color: "var(--text-secondary)", fontSize: 13, opacity: 0.4 }}>« First</span>
+          )}
+          {page > 1 ? (
+            <Link href={pageUrl(page - 1)} className="text-link" style={{ color: "var(--accent)", fontSize: 13 }}>
+              ← Prev
+            </Link>
+          ) : (
+            <span style={{ color: "var(--text-secondary)", fontSize: 13, opacity: 0.4 }}>← Prev</span>
+          )}
+          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            Page {page} of {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link href={pageUrl(page + 1)} className="text-link" style={{ color: "var(--accent)", fontSize: 13 }}>
+              Next →
+            </Link>
+          ) : (
+            <span style={{ color: "var(--text-secondary)", fontSize: 13, opacity: 0.4 }}>Next →</span>
+          )}
+          {page < totalPages ? (
+            <Link href={pageUrl(totalPages)} className="text-link" style={{ color: "var(--accent)", fontSize: 13 }}>
+              Last »
+            </Link>
+          ) : (
+            <span style={{ color: "var(--text-secondary)", fontSize: 13, opacity: 0.4 }}>Last »</span>
+          )}
+        </div>
+      )}
     </main>
   );
 }

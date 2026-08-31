@@ -6,6 +6,7 @@ import { roles, permissions, rolePermissions } from "@/db/schema";
 import { can } from "@/lib/permissions";
 import { updateRolePermissionsAction } from "../actions";
 import BackLink from "@/app/(dashboard)/BackLink";
+import SuccessModal from "@/app/(dashboard)/SuccessModal";
 
 const SCOPE_COLUMNS = [
   { value: "", label: "None" },
@@ -60,6 +61,8 @@ export default async function EditRolePage({ params }: { params: Promise<{ id: s
       <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
         Choose how much of the company&apos;s data this role can act on, for each capability.
       </p>
+
+      <SuccessModal param="saved" message="Permissions saved." />
 
       <form action={boundUpdate} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
         <div

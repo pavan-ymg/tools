@@ -89,6 +89,8 @@ export async function updateRolePermissionsAction(roleId: number, formData: Form
   await logAudit(actorId, "role_permissions_updated", "role", roleId, role.name, {
     grants: newGrants.map((g) => ({ key: g.key, scope: g.scope })),
   });
+
+  redirect(`/admin/roles/${roleId}?saved=1`);
 }
 
 export async function deleteRoleAction(roleId: number): Promise<{ error?: string }> {

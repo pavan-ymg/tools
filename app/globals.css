@@ -165,7 +165,10 @@ a {
   width: 480px;
   height: 344px;
   background: url('/flower-pattern.svg') no-repeat center / contain;
-  opacity: 0.05;
+  /* The SVG's own paths are already opacity 0.2 (thin gold strokes) —
+     0.05 here made it compound to ~0.01, effectively invisible against
+     the dark background. 0.5 nets ~0.1, a visible-but-subtle flourish. */
+  opacity: 0.5;
   pointer-events: none;
   z-index: 0;
 }
@@ -177,6 +180,14 @@ a {
   top: -60px;
   left: -60px;
   transform: rotate(180deg);
+}
+.flower-decoration-center {
+  top: 50%;
+  left: 50%;
+  width: 800px;
+  height: 573px;
+  transform: translate(-50%, -50%);
+  opacity: 0.3;
 }
 
 @keyframes spin {
