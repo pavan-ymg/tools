@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import { leadIndex } from "@/db/schema";
 import { can } from "@/lib/permissions";
 import { syncLeads } from "@/lib/lead-sync";
-import { maskPhone, maskEmail } from "@/lib/mask";
 import LeadsTable from "./LeadsTable";
 import RefreshButton from "./RefreshButton";
 
@@ -49,14 +48,11 @@ export default async function LeadsPage({
     .limit(PAGE_SIZE)
     .offset((page - 1) * PAGE_SIZE);
 
-  // Masked here, server-side, before this data becomes props to a
-  // client component (§5.3) — the real values only ever reach the
-  // client through the reveal action's own round-trip.
-  const maskedRows = rows.map((row) => ({
+  const leadRows = rows.map((row) => ({
     id: row.id,
     name: row.name,
-    phone: maskPhone(row.phone),
-    email: maskEmail(row.email),
+    phone: row.phone,
+    email: row.email,
     domain: row.domain,
     slug: row.slug,
     state: row.state,
@@ -67,19 +63,17 @@ export default async function LeadsPage({
     <main style={{ padding: 32 }}>
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
+          display: "grid",
+          gridTemplateColumns: "1fr auto 1fr",
           alignItems: "center",
           marginBottom: 24,
         }}
       >
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Lead Feed</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-            {session!.user.email} — {session!.user.roles?.join(", ")}
-          </p>
-          <RefreshButton />
-        </div>
+        <RefreshButton />
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", justifySelf: "end" }}>
+          {session!.user.email} — {session!.user.roles?.join(", ")}
+        </p>
       </div>
 
       {syncError && (
@@ -89,7 +83,7 @@ export default async function LeadsPage({
         </p>
       )}
 
-      <LeadsTable rows={maskedRows} />
+      <LeadsTable rows={leadRows} />
 
       <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
         {page > 1 && (
