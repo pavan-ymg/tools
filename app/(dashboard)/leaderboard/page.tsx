@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { users } from "@/db/schema";
 import { getScope, subordinateIds } from "@/lib/permissions";
 import { getLeaderboard, type TimeWindow, type LeaderboardRow } from "@/lib/leaderboard";
 
@@ -32,6 +35,21 @@ export default async function LeaderboardPage({
   const window = (WINDOWS.some((w) => w.key === windowParam) ? windowParam : "week") as TimeWindow;
 
   const fullBoard = await getLeaderboard(window);
+
+  // Target is always a WEEKLY goal regardless of which window tab is
+  // selected — reuse the "week" board's worked count for progress
+  // rather than a separate implementation, whichever tab is active.
+  const weeklyBoard = window === "week" ? fullBoard : await getLeaderboard("week");
+  const weeklyWorkedByOwner = new Map(weeklyBoard.map((r) => [r.ownerId, r.recordsWorked]));
+
+  const ownerIds = fullBoard.map((r) => r.ownerId);
+  const targetByOwner = new Map(
+    ownerIds.length > 0
+      ? (await db.select({ id: users.id, weeklyTarget: users.weeklyTarget }).from(users).where(inArray(users.id, ownerIds))).map(
+          (u) => [u.id, u.weeklyTarget] as const
+        )
+      : []
+  );
 
   // What gets DISPLAYED depends on scope — the underlying computation
   // above always covers everyone (§7.3 / lib/leaderboard.ts comment).
@@ -86,7 +104,7 @@ export default async function LeaderboardPage({
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "rgba(255,255,255,0.03)" }}>
-              {["#", "Agent", "Points", "Worked", "Contact rate", "TL-scored"].map((h) => (
+              {["#", "Agent", "Points", "Leads", "Qualified", "Target", "Contacted"].map((h) => (
                 <th
                   key={h}
                   style={{ padding: "10px 14px", textAlign: "left", fontSize: 13, color: "var(--text-secondary)", borderBottom: "1px solid var(--glass-border)" }}
@@ -100,6 +118,8 @@ export default async function LeaderboardPage({
             {visibleRows.map((row) => {
               const rank = fullBoard.findIndex((r) => r.ownerId === row.ownerId) + 1;
               const isMe = row.ownerId === userId;
+              const target = targetByOwner.get(row.ownerId) ?? null;
+              const weeklyWorked = weeklyWorkedByOwner.get(row.ownerId) ?? 0;
               return (
                 <tr key={row.ownerId} style={isMe ? { background: "rgba(59,130,246,0.08)" } : undefined}>
                   <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{rank}</td>
@@ -109,8 +129,13 @@ export default async function LeaderboardPage({
                   </td>
                   <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{row.points}</td>
                   <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{row.recordsWorked}</td>
-                  <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{row.contactRate}%</td>
                   <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{row.scoredByTl}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>
+                    {target !== null ? `${weeklyWorked}/${target}` : "—"}
+                  </td>
+                  <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>
+                    {row.contacted} ({row.contactRate}%)
+                  </td>
                 </tr>
               );
             })}

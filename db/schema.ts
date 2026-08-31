@@ -53,6 +53,10 @@ export const users = pgTable("users", {
   // clear it — see authorize() in lib/auth.ts.
   failedLoginCount: integer("failed_login_count").notNull().default(0),
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  // Weekly lead-count goal for the leaderboard's Target column. Null =
+  // no target set — shown as "—", not 0, since 0 would read as "handle
+  // nothing this week" rather than "not configured".
+  weeklyTarget: integer("weekly_target"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

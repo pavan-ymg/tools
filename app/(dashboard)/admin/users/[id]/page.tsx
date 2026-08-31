@@ -80,6 +80,18 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
           Active{targetIsSuperAdmin && <span style={{ color: "var(--text-secondary)" }}> (a super_admin account can&apos;t be deactivated)</span>}
         </label>
 
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Weekly target (leads)</span>
+          <input
+            type="number"
+            name="weeklyTarget"
+            min={0}
+            defaultValue={targetUser.weeklyTarget ?? ""}
+            placeholder="No target set"
+            style={inputStyle}
+          />
+        </label>
+
         <div>
           <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Roles</span>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>

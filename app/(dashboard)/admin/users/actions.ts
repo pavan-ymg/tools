@@ -117,6 +117,8 @@ export async function updateUserAction(id: number, formData: FormData): Promise<
 
   const managerIdRaw = formData.get("managerId") as string;
   const managerId = managerIdRaw ? Number(managerIdRaw) : null;
+  const weeklyTargetRaw = formData.get("weeklyTarget") as string;
+  const weeklyTarget = weeklyTargetRaw ? Number(weeklyTargetRaw) : null;
   const submittedRoleIds = formData.getAll("roleIds").map(Number);
   const allowed = await assignableRoleIds();
   const roleIds = submittedRoleIds.filter((roleId) => allowed.has(roleId));
@@ -126,7 +128,7 @@ export async function updateUserAction(id: number, formData: FormData): Promise<
   const targetIsSuperAdmin = await isSuperAdmin(id);
   const isActive = targetIsSuperAdmin ? true : formData.get("isActive") === "on";
 
-  await db.update(users).set({ managerId, isActive, updatedAt: new Date() }).where(eq(users.id, id));
+  await db.update(users).set({ managerId, isActive, weeklyTarget, updatedAt: new Date() }).where(eq(users.id, id));
 
   // Only replace non-system role rows — a system role (super_admin)
   // isn't shown as a checkbox here at all (listAssignableRoles), so a

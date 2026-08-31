@@ -57,6 +57,13 @@
       "when": 1788203577182,
       "tag": "0007_gray_phantom_reporter",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788205062945,
+      "tag": "0008_yummy_mole_man",
+      "breakpoints": true
     }
   ]
 }

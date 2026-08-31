@@ -10,7 +10,7 @@ import type { BeverlyLawAnswers } from "@/lib/forms/beverly-law";
 import EditForm from "./EditForm";
 import StageForm from "./StageForm";
 import TlReviewForm from "./TlReviewForm";
-import { updateIntakeAction, changeStageAction, tlReviewAction } from "../actions";
+import { updateIntakeAction, changeStageAction, tlReviewAction, setFollowUpAction } from "../actions";
 
 export default async function IntakeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: idParam } = await params;
@@ -57,6 +57,11 @@ export default async function IntakeDetailPage({ params }: { params: Promise<{ i
   const boundUpdate = updateIntakeAction.bind(null, id);
   const boundStage = changeStageAction.bind(null, id);
   const boundReview = tlReviewAction.bind(null, id);
+  const boundFollowUp = setFollowUpAction.bind(null, id);
+  // datetime-local wants "YYYY-MM-DDTHH:mm", no timezone suffix. Server
+  // and viewer clocks can differ, same caveat as anywhere else this app
+  // shows a raw date — not worth a client component just for this field.
+  const followUpLocalValue = record.followUpAt ? record.followUpAt.toISOString().slice(0, 16) : "";
 
   return (
     <main style={{ padding: 32, maxWidth: 720 }}>
@@ -83,6 +88,30 @@ export default async function IntakeDetailPage({ params }: { params: Promise<{ i
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 28 }}>
         <StageForm currentStage={record.stage} action={boundStage} />
+
+        {canEdit && (
+          <form
+            action={boundFollowUp}
+            style={{ display: "flex", alignItems: "flex-end", gap: 10, border: "1px solid var(--glass-border)", borderRadius: 8, padding: 16 }}
+          >
+            <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>Follow-up</span>
+              <input
+                type="datetime-local"
+                name="followUpAt"
+                defaultValue={followUpLocalValue}
+                style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.2)", color: "var(--text-primary)" }}
+              />
+            </label>
+            <button
+              type="submit"
+              style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: "var(--accent)", color: "white", fontWeight: 500, cursor: "pointer" }}
+            >
+              Save
+            </button>
+          </form>
+        )}
+
         {canReview && (
           <TlReviewForm scoredByTl={record.scoredByTl} tlComment={record.tlComment} action={boundReview} />
         )}

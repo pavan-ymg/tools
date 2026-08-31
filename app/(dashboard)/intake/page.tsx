@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { inArray, eq, and, desc } from "drizzle-orm";
+import { inArray, eq, and, or, ilike, lte, isNotNull, sql, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { intakeRecords, users } from "@/db/schema";
@@ -21,7 +21,7 @@ const STAGE_LABELS: Record<string, string> = {
 export default async function IntakeListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ form?: string }>;
+  searchParams: Promise<{ form?: string; q?: string; stage?: string; due?: string }>;
 }) {
   const session = await auth();
   const userId = Number(session!.user.id);
@@ -37,7 +37,9 @@ export default async function IntakeListPage({
     );
   }
 
-  const { form: formType } = await searchParams;
+  const { form: formType, q, stage: stageFilter, due } = await searchParams;
+  const query = q?.trim();
+  const dueOnly = due === "1";
 
   // No campaign picked yet — each client's form has its own answer
   // shape (§6.6), so a blended list across campaigns doesn't mean
@@ -76,7 +78,7 @@ export default async function IntakeListPage({
 
   const currentForm = FORM_REGISTRY.find((f) => f.formType === formType);
 
-  let query = db
+  let listQuery = db
     .select({
       id: intakeRecords.id,
       phone: intakeRecords.phone,
@@ -84,6 +86,7 @@ export default async function IntakeListPage({
       stage: intakeRecords.stage,
       answers: intakeRecords.answers,
       scoredByTl: intakeRecords.scoredByTl,
+      followUpAt: intakeRecords.followUpAt,
       createdAt: intakeRecords.createdAt,
       ownerName: users.name,
     })
@@ -98,9 +101,25 @@ export default async function IntakeListPage({
         ? inArray(intakeRecords.ownerId, [userId, ...(await subordinateIds(userId))])
         : undefined; // scope === "all" -> no owner filter
 
-  query = query.where(scopeFilter ? and(eq(intakeRecords.formType, formType), scopeFilter) : eq(intakeRecords.formType, formType));
+  const searchFilter = query
+    ? or(
+        ilike(intakeRecords.phone, `%${query}%`),
+        ilike(intakeRecords.email, `%${query}%`),
+        sql`${intakeRecords.answers}->>'fullName' ILIKE ${`%${query}%`}`
+      )
+    : undefined;
 
-  const rows = await query.orderBy(desc(intakeRecords.createdAt)).limit(100);
+  const filters = [
+    eq(intakeRecords.formType, formType),
+    scopeFilter,
+    searchFilter,
+    stageFilter ? eq(intakeRecords.stage, stageFilter as (typeof intakeRecords.stage.enumValues)[number]) : undefined,
+    dueOnly ? and(isNotNull(intakeRecords.followUpAt), lte(intakeRecords.followUpAt, new Date())) : undefined,
+  ].filter((f): f is NonNullable<typeof f> => f !== undefined);
+
+  listQuery = listQuery.where(and(...filters));
+
+  const rows = await listQuery.orderBy(desc(intakeRecords.createdAt)).limit(100);
 
   return (
     <main style={{ padding: 32 }}>
@@ -147,11 +166,57 @@ export default async function IntakeListPage({
         </div>
       </div>
 
+      <form method="GET" style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+        <input type="hidden" name="form" value={formType} />
+        <input
+          name="q"
+          type="text"
+          defaultValue={query ?? ""}
+          placeholder="Search name, phone, or email…"
+          style={{
+            padding: "8px 12px",
+            borderRadius: 6,
+            border: "1px solid var(--glass-border)",
+            background: "rgba(0,0,0,0.2)",
+            color: "var(--text-primary)",
+            width: 280,
+            maxWidth: "100%",
+          }}
+        />
+        <select
+          name="stage"
+          defaultValue={stageFilter ?? ""}
+          style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.2)", color: "var(--text-primary)" }}
+        >
+          <option value="">All stages</option>
+          {Object.entries(STAGE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+          <input type="checkbox" name="due" value="1" defaultChecked={dueOnly} style={{ width: 16, height: 16 }} />
+          Due for follow-up
+        </label>
+        <button
+          type="submit"
+          style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid var(--glass-border)", background: "transparent", color: "var(--accent)", fontSize: 13, cursor: "pointer" }}
+        >
+          Filter
+        </button>
+        {(query || stageFilter || dueOnly) && (
+          <a href={`/intake?form=${formType}`} style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            Clear
+          </a>
+        )}
+      </form>
+
       <div style={{ overflowX: "auto", border: "1px solid var(--glass-border)", borderRadius: 8 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "rgba(255,255,255,0.03)" }}>
-              {["Name", "Phone", "Stage", "Owner", "Scored", "Created"].map((h) => (
+              {["Name", "Phone", "Stage", "Owner", "Scored", "Follow-up", "Created"].map((h) => (
                 <th
                   key={h}
                   style={{ padding: "10px 14px", textAlign: "left", fontSize: 13, color: "var(--text-secondary)", borderBottom: "1px solid var(--glass-border)" }}
@@ -175,6 +240,15 @@ export default async function IntakeListPage({
                   <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{STAGE_LABELS[row.stage]}</td>
                   <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{row.ownerName}</td>
                   <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{row.scoredByTl ? "✓" : "—"}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>
+                    {row.followUpAt
+                      ? (
+                        <span style={{ color: row.followUpAt <= new Date() ? "var(--danger)" : "var(--text-primary)" }}>
+                          {row.followUpAt.toLocaleDateString()}
+                        </span>
+                      )
+                      : "—"}
+                  </td>
                   <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>
                     {row.createdAt.toLocaleDateString()}
                   </td>
