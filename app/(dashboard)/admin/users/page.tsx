@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, roles, userRoles } from "@/db/schema";
 import { can } from "@/lib/permissions";
-import UsersExportButton from "./UsersExportButton";
 
 export default async function UsersListPage() {
   const session = await auth();
@@ -35,15 +34,12 @@ export default async function UsersListPage() {
     <main style={{ padding: 32 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Users</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <UsersExportButton />
-          <Link
-            href="/admin/users/invite"
-            style={{ background: "var(--accent)", color: "white", padding: "8px 16px", borderRadius: 6, fontSize: 13, textDecoration: "none" }}
-          >
-            + Invite user
-          </Link>
-        </div>
+        <Link
+          href="/admin/users/invite"
+          style={{ background: "var(--accent)", color: "white", padding: "8px 16px", borderRadius: 6, fontSize: 13, textDecoration: "none" }}
+        >
+          + Invite user
+        </Link>
       </div>
 
       <div style={{ overflowX: "auto", border: "1px solid var(--glass-border)", borderRadius: 8 }}>
