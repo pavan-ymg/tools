@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { can } from "@/lib/permissions";
+import { signOutAction } from "./actions";
 
 /**
  * Gate for every dashboard route. proxy.ts only checks "is there a
@@ -78,6 +79,21 @@ export default async function DashboardLayout({
             Roles
           </Link>
         )}
+        <form action={signOutAction} style={{ marginLeft: "auto" }}>
+          <button
+            type="submit"
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--text-secondary)",
+              fontSize: 13,
+              cursor: "pointer",
+              padding: 0,
+            }}
+          >
+            Sign out
+          </button>
+        </form>
       </nav>
       {children}
     </>
