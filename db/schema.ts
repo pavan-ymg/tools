@@ -29,7 +29,10 @@ export const users = pgTable("users", {
   hrmsEmployeeId: text("hrms_employee_id"),
   name: text("name").notNull(),
   email: text("email").notNull(),
-  passwordHash: text("password_hash").notNull(),
+  // Null = invited but hasn't accepted yet (pending). Set once, on
+  // invite acceptance. authorize() must treat a null hash as "cannot
+  // log in", never attempt bcrypt.compare against it.
+  passwordHash: text("password_hash"),
   managerId: integer("manager_id"),
   isActive: boolean("is_active").notNull().default(true),
   // Set on bootstrap/admin-force-reset; the dashboard layout checks this

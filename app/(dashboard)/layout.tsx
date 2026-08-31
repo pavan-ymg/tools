@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { auth, signOut } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users } from "@/db/schema";
+import { can } from "@/lib/permissions";
 
 /**
  * Gate for every dashboard route. proxy.ts only checks "is there a
@@ -45,6 +46,8 @@ export default async function DashboardLayout({
     redirect("/change-password");
   }
 
+  const canManageUsers = await can(current.id, "users.manage");
+
   return (
     <>
       <nav
@@ -62,6 +65,11 @@ export default async function DashboardLayout({
         <Link href="/intake" style={{ color: "var(--text-secondary)" }}>
           Call Intake
         </Link>
+        {canManageUsers && (
+          <Link href="/admin/users" style={{ color: "var(--text-secondary)" }}>
+            Users
+          </Link>
+        )}
       </nav>
       {children}
     </>

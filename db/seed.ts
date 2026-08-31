@@ -54,6 +54,11 @@ const STARTER_ROLES: StarterRole[] = [
       { key: "intake.review", scope: "all" },
       { key: "intake.export", scope: "all" },
       { key: "leaderboard.view", scope: "all" },
+      // Matches the original brief's "manager can add employees" — not
+      // just super_admin. roles.manage stays super_admin-only (§3.5:
+      // rearranging permissions is a higher-trust action than inviting
+      // people).
+      { key: "users.manage", scope: "all" },
     ],
   },
   {

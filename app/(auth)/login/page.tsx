@@ -20,6 +20,7 @@ function LoginForm() {
   const [error, formAction, pending] = useActionState(loginAction, undefined);
   const searchParams = useSearchParams();
   const passwordChanged = searchParams.get("passwordChanged") === "1";
+  const inviteAccepted = searchParams.get("inviteAccepted") === "1";
 
   return (
     <main
@@ -49,6 +50,11 @@ function LoginForm() {
         {passwordChanged && (
           <p style={{ color: "var(--success)", fontSize: 13 }}>
             Password updated. Please sign in.
+          </p>
+        )}
+        {inviteAccepted && (
+          <p style={{ color: "var(--success)", fontSize: 13 }}>
+            Account set up. Please sign in.
           </p>
         )}
 
@@ -90,6 +96,10 @@ function LoginForm() {
         >
           {pending ? "Signing in…" : "Sign in"}
         </button>
+
+        <a href="/forgot-password" style={{ fontSize: 13, color: "var(--accent)", textAlign: "center" }}>
+          Forgot password?
+        </a>
       </form>
     </main>
   );

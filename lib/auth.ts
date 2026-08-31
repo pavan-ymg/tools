@@ -41,9 +41,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .where(eq(users.email, email.toLowerCase()))
           .limit(1);
 
-        // Same failure for "no such account", "inactive", and "wrong
-        // password" — never reveal which one it was (§3.6.2).
-        if (!user || !user.isActive) return null;
+        // Same failure for "no such account", "inactive", "pending
+        // invite" (no password set yet), and "wrong password" — never
+        // reveal which one it was (§3.6.2).
+        if (!user || !user.isActive || !user.passwordHash) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
