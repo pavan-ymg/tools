@@ -13,7 +13,7 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-export default function NewRoleForm() {
+export default function NewRoleForm({ cloneableRoles }: { cloneableRoles: Array<{ id: number; name: string }> }) {
   const [error, formAction, pending] = useActionState<string | undefined, FormData>(createRoleAction, undefined);
 
   return (
@@ -27,6 +27,21 @@ export default function NewRoleForm() {
         <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Slug</span>
         <input name="slug" type="text" required style={inputStyle} placeholder="quality_assurance" />
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>Lowercase, no spaces — used internally, never shown to agents.</span>
+      </label>
+
+      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Start from</span>
+        <select name="cloneFromRoleId" style={inputStyle} defaultValue="">
+          <option value="">(blank — no permissions granted yet)</option>
+          {cloneableRoles.map((r) => (
+            <option key={r.id} value={r.id}>
+              Copy {r.name}&apos;s permissions
+            </option>
+          ))}
+        </select>
+        <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+          Only a starting point — you can adjust every permission afterward.
+        </span>
       </label>
 
       {error && <p style={{ color: "var(--danger)", fontSize: 13 }}>{error}</p>}

@@ -37,6 +37,26 @@ export async function createRoleAction(
   if (existing) return "That slug is already in use.";
 
   const [role] = await db.insert(roles).values({ name, slug, isSystem: false }).returning();
+
+  // Optional starting point — copy an existing role's grants onto the
+  // new one instead of everything defaulting to None. Never offered for
+  // (and never sourced from) the system role — it has no rows in
+  // role_permissions to copy in the first place.
+  const cloneFromRaw = formData.get("cloneFromRoleId") as string;
+  if (cloneFromRaw) {
+    const cloneFromRoleId = Number(cloneFromRaw);
+    const sourceGrants = await db
+      .select({ permissionId: rolePermissions.permissionId, scope: rolePermissions.scope })
+      .from(rolePermissions)
+      .where(eq(rolePermissions.roleId, cloneFromRoleId));
+
+    if (sourceGrants.length > 0) {
+      await db.insert(rolePermissions).values(
+        sourceGrants.map((g) => ({ roleId: role.id, permissionId: g.permissionId, scope: g.scope }))
+      );
+    }
+  }
+
   redirect(`/admin/roles/${role.id}`);
 }
 
