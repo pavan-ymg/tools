@@ -17,6 +17,7 @@
   --danger: #E0654A;
   --success: #7FA876;
   --card-bg: #22221f;
+  color-scheme: dark;
 }
 
 * {
@@ -40,6 +41,12 @@ h1, h2, h3 {
 
 input, button, select {
   font-family: inherit;
+  font-size: 13px;
+}
+
+select option {
+  background: var(--card-bg);
+  color: var(--text-primary);
 }
 
 a {
