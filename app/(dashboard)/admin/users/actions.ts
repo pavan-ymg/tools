@@ -120,3 +120,35 @@ export async function getUserRoleIds(userId: number): Promise<number[]> {
   const rows = await db.select({ roleId: userRoles.roleId }).from(userRoles).where(eq(userRoles.userId, userId));
   return rows.map((r) => r.roleId);
 }
+
+export type UserExportRow = Record<string, string>;
+
+// One shot, not paginated — unlike intake/leads, headcount here is in
+// the dozens (§ headcount planning: 15 now, 50-70 within a year), nowhere
+// near the volume the Vercel Hobby ~10s ceiling would actually threaten.
+export async function getUserExportRows(): Promise<UserExportRow[]> {
+  await requireUsersManage();
+
+  const allUsers = await db.select().from(users).orderBy(users.name);
+  const allRoles = await db.select().from(roles).orderBy(roles.name);
+  const allUserRoles = await db.select().from(userRoles);
+
+  const managerNameById = new Map(allUsers.map((u) => [u.id, u.name]));
+  const roleNameById = new Map(allRoles.map((r) => [r.id, r.name]));
+  const rolesByUserId = new Map<number, string[]>();
+  for (const ur of allUserRoles) {
+    const list = rolesByUserId.get(ur.userId) ?? [];
+    const name = roleNameById.get(ur.roleId);
+    if (name) list.push(name);
+    rolesByUserId.set(ur.userId, list);
+  }
+
+  return allUsers.map((u) => ({
+    Name: u.name,
+    Email: u.email,
+    Status: !u.isActive ? "Deactivated" : !u.passwordHash ? "Pending" : "Active",
+    Manager: u.managerId ? (managerNameById.get(u.managerId) ?? "") : "",
+    Roles: (rolesByUserId.get(u.id) ?? []).join("; "),
+    "Created At": u.createdAt.toISOString(),
+  }));
+}
