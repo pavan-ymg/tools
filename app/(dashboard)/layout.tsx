@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { can } from "@/lib/permissions";
+import { getDueFollowUpCount } from "@/lib/intake-stats";
 import { signOutAction } from "./actions";
 
 /**
@@ -48,6 +49,7 @@ export default async function DashboardLayout({
 
   const canManageUsers = await can(current.id, "users.manage");
   const canManageRoles = await can(current.id, "roles.manage");
+  const dueCount = await getDueFollowUpCount(current.id);
 
   return (
     <>
@@ -71,8 +73,22 @@ export default async function DashboardLayout({
         <Link href="/intake/new" style={{ color: "var(--text-secondary)" }}>
           New Intake
         </Link>
-        <Link href="/intake" style={{ color: "var(--text-secondary)" }}>
+        <Link href="/intake" style={{ color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
           Intake Records
+          {!!dueCount && (
+            <span
+              style={{
+                background: "var(--danger)",
+                color: "white",
+                borderRadius: 999,
+                fontSize: 11,
+                lineHeight: 1,
+                padding: "2px 6px",
+              }}
+            >
+              {dueCount}
+            </span>
+          )}
         </Link>
         <Link href="/leaderboard" style={{ color: "var(--text-secondary)" }}>
           Leaderboard

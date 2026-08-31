@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { eq, and, inArray, isNotNull, lte, sql, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, intakeRecords, auditLog } from "@/db/schema";
-import { can, getScope, subordinateIds } from "@/lib/permissions";
+import { users, auditLog } from "@/db/schema";
+import { can } from "@/lib/permissions";
 import { getLeaderboard } from "@/lib/leaderboard";
+import { getDueFollowUpCount } from "@/lib/intake-stats";
 import { FORM_REGISTRY } from "@/lib/forms/registry";
 
 const cardStyle: React.CSSProperties = {
@@ -24,9 +25,8 @@ export default async function DashboardHomePage() {
   const userId = Number(session!.user.id);
   const userName = session!.user.name ?? "there";
 
-  const [canViewLeaderboard, canViewIntake, canManageUsers, canManageRoles] = await Promise.all([
+  const [canViewLeaderboard, canManageUsers, canManageRoles] = await Promise.all([
     can(userId, "leaderboard.view"),
-    getScope(userId, "intake.view"),
     can(userId, "users.manage"),
     can(userId, "roles.manage"),
   ]);
@@ -52,25 +52,8 @@ export default async function DashboardHomePage() {
     weeklyTarget = me?.weeklyTarget ?? null;
   }
 
-  // Follow-ups due, within whatever scope intake.view grants this user —
-  // own/team/all, same rule as the Intake Records list itself.
-  let dueCount: number | null = null;
-  if (canViewIntake) {
-    const scopeFilter =
-      canViewIntake === "own"
-        ? eq(intakeRecords.ownerId, userId)
-        : canViewIntake === "team"
-          ? inArray(intakeRecords.ownerId, [userId, ...(await subordinateIds(userId))])
-          : undefined;
-    const filters = [isNotNull(intakeRecords.followUpAt), lte(intakeRecords.followUpAt, new Date()), scopeFilter].filter(
-      (f): f is NonNullable<typeof f> => f !== undefined
-    );
-    const [row] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(intakeRecords)
-      .where(and(...filters));
-    dueCount = row?.count ?? 0;
-  }
+  const dueCount = await getDueFollowUpCount(userId);
+  const canViewIntake = dueCount !== null;
 
   const recentAudit = canManageRoles ? await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(5) : [];
 
