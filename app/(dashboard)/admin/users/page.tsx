@@ -23,12 +23,15 @@ export default async function UsersListPage() {
 
   const managerNameById = new Map(allUsers.map((u) => [u.id, u.name]));
   const roleNameById = new Map(allRoles.map((r) => [r.id, r.name]));
+  const systemRoleIds = new Set(allRoles.filter((r) => r.isSystem).map((r) => r.id));
   const rolesByUserId = new Map<number, string[]>();
+  const superAdminUserIds = new Set<number>();
   for (const ur of allUserRoles) {
     const list = rolesByUserId.get(ur.userId) ?? [];
     const name = roleNameById.get(ur.roleId);
     if (name) list.push(name);
     rolesByUserId.set(ur.userId, list);
+    if (systemRoleIds.has(ur.roleId)) superAdminUserIds.add(ur.userId);
   }
 
   return (
@@ -75,7 +78,7 @@ export default async function UsersListPage() {
                       <Link href={`/admin/users/${u.id}`} style={{ color: "var(--accent)" }}>
                         Edit
                       </Link>
-                      <UserRowActions userId={u.id} isActive={u.isActive} />
+                      {!superAdminUserIds.has(u.id) && <UserRowActions userId={u.id} isActive={u.isActive} />}
                     </div>
                   </td>
                 </tr>

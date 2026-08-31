@@ -29,6 +29,21 @@ async function assignableRoleIds(): Promise<Set<number>> {
   return new Set(rows.map((r) => r.id));
 }
 
+// Whether this user holds the system role — checked independently of
+// assignableRoleIds() because that only guards which roles can be
+// GRANTED. This guards the user row itself: a super_admin must never be
+// deactivated or deleted by anyone else with users.manage, or the one
+// account meant to be unconditionally recoverable stops being that.
+export async function isSuperAdmin(targetUserId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: roles.id })
+    .from(userRoles)
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(and(eq(userRoles.userId, targetUserId), eq(roles.isSystem, true)))
+    .limit(1);
+  return !!row;
+}
+
 async function baseUrl(): Promise<string> {
   const h = await headers();
   const host = h.get("host");
@@ -91,10 +106,14 @@ export async function updateUserAction(id: number, formData: FormData): Promise<
 
   const managerIdRaw = formData.get("managerId") as string;
   const managerId = managerIdRaw ? Number(managerIdRaw) : null;
-  const isActive = formData.get("isActive") === "on";
   const submittedRoleIds = formData.getAll("roleIds").map(Number);
   const allowed = await assignableRoleIds();
   const roleIds = submittedRoleIds.filter((roleId) => allowed.has(roleId));
+
+  // A super_admin's own account can never be deactivated through this
+  // form, by anyone — the "Active" checkbox is simply ignored for them.
+  const targetIsSuperAdmin = await isSuperAdmin(id);
+  const isActive = targetIsSuperAdmin ? true : formData.get("isActive") === "on";
 
   await db.update(users).set({ managerId, isActive, updatedAt: new Date() }).where(eq(users.id, id));
 
@@ -145,9 +164,15 @@ export async function getUserRoleIds(userId: number): Promise<number[]> {
   return rows.map((r) => r.roleId);
 }
 
-export async function toggleUserActiveAction(id: number, nextActive: boolean): Promise<void> {
+export async function toggleUserActiveAction(id: number, nextActive: boolean): Promise<{ error?: string }> {
   await requireUsersManage();
+
+  if (!nextActive && (await isSuperAdmin(id))) {
+    return { error: "Can't deactivate a super_admin account." };
+  }
+
   await db.update(users).set({ isActive: nextActive, updatedAt: new Date() }).where(eq(users.id, id));
+  return {};
 }
 
 /**
@@ -166,6 +191,7 @@ export async function deleteUserAction(id: number): Promise<{ error?: string }> 
 
   const [target] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!target) return { error: "User not found." };
+  if (await isSuperAdmin(id)) return { error: "Can't delete a super_admin account." };
 
   try {
     await db.delete(users).where(eq(users.id, id));

@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { can } from "@/lib/permissions";
-import { updateUserAction, listManagerCandidates, listAssignableRoles, getUserRoleIds } from "../actions";
+import { updateUserAction, listManagerCandidates, listAssignableRoles, getUserRoleIds, isSuperAdmin } from "../actions";
 import ForceResetButton from "./ForceResetButton";
 
 const inputStyle: React.CSSProperties = {
@@ -37,10 +37,11 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   const [targetUser] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!targetUser) notFound();
 
-  const [allRoles, managers, currentRoleIds] = await Promise.all([
+  const [allRoles, managers, currentRoleIds, targetIsSuperAdmin] = await Promise.all([
     listAssignableRoles(),
     listManagerCandidates(id),
     getUserRoleIds(id),
+    isSuperAdmin(id),
   ]);
 
   const boundUpdate = updateUserAction.bind(null, id);
@@ -69,8 +70,14 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
         </label>
 
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-          <input type="checkbox" name="isActive" defaultChecked={targetUser.isActive} style={{ width: 16, height: 16 }} />
-          Active
+          <input
+            type="checkbox"
+            name="isActive"
+            defaultChecked={targetUser.isActive}
+            disabled={targetIsSuperAdmin}
+            style={{ width: 16, height: 16 }}
+          />
+          Active{targetIsSuperAdmin && <span style={{ color: "var(--text-secondary)" }}> (a super_admin account can&apos;t be deactivated)</span>}
         </label>
 
         <div>

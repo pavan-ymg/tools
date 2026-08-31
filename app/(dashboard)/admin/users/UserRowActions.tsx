@@ -12,8 +12,9 @@ export default function UserRowActions({ userId, isActive }: { userId: number; i
   function toggleActive() {
     setError(null);
     startTransition(async () => {
-      await toggleUserActiveAction(userId, !isActive);
-      router.refresh();
+      const result = await toggleUserActiveAction(userId, !isActive);
+      if (result.error) setError(result.error);
+      else router.refresh();
     });
   }
 
