@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth, signOut } from "@/lib/auth";
@@ -44,5 +45,25 @@ export default async function DashboardLayout({
     redirect("/change-password");
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <nav
+        style={{
+          display: "flex",
+          gap: 20,
+          padding: "12px 32px",
+          borderBottom: "1px solid var(--glass-border)",
+          fontSize: 13,
+        }}
+      >
+        <Link href="/leads" style={{ color: "var(--text-secondary)" }}>
+          Lead Feed
+        </Link>
+        <Link href="/intake" style={{ color: "var(--text-secondary)" }}>
+          Call Intake
+        </Link>
+      </nav>
+      {children}
+    </>
+  );
 }

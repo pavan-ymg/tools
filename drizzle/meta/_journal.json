@@ -29,6 +29,13 @@
       "when": 1787864607116,
       "tag": "0003_talented_centennial",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788183199413,
+      "tag": "0004_groovy_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }

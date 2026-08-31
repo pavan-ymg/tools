@@ -47,7 +47,7 @@ async function loadGrants(userId: number) {
  * manager_id means this is the only place hierarchy depth matters;
  * inserting a Director later needs no change here (§3.5).
  */
-async function subordinateIds(userId: number): Promise<number[]> {
+export async function subordinateIds(userId: number): Promise<number[]> {
   const result = await db.execute(sql`
     WITH RECURSIVE subtree AS (
       SELECT id FROM users WHERE manager_id = ${userId}
@@ -86,4 +86,17 @@ export async function can(
   if (recordOwnerId === userId) return true;
   const ids = await subordinateIds(userId);
   return ids.includes(recordOwnerId);
+}
+
+/**
+ * The broadest scope a user holds for a permission, or null if they
+ * don't hold it at all. For building a LIST query's WHERE clause (e.g.
+ * "which intake records can this user see") — `can()` answers "is this
+ * ONE record visible", this answers "what's the boundary for a list".
+ * Super admin gets 'all' without needing an explicit grant row.
+ */
+export async function getScope(userId: number, permissionKey: string): Promise<Scope | null> {
+  const { isSuperAdmin, grants } = await loadGrants(userId);
+  if (isSuperAdmin) return "all";
+  return grants.get(permissionKey) ?? null;
 }

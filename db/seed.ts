@@ -21,6 +21,7 @@ import { users, roles, permissions, rolePermissions, userRoles } from "@/db/sche
 
 const PERMISSIONS: Array<{ key: string; description: string }> = [
   { key: "leads.view", description: "View the lead feed" },
+  { key: "intake.view", description: "View call-intake records" },
   { key: "intake.create", description: "Create a call-intake record" },
   { key: "intake.edit", description: "Edit a call-intake record" },
   { key: "intake.review", description: "TL review — score/comment on intake records" },
@@ -47,6 +48,7 @@ const STARTER_ROLES: StarterRole[] = [
     isSystem: false,
     grants: [
       { key: "leads.view", scope: "all" },
+      { key: "intake.view", scope: "all" },
       { key: "intake.create", scope: "all" },
       { key: "intake.edit", scope: "all" },
       { key: "intake.review", scope: "all" },
@@ -60,6 +62,7 @@ const STARTER_ROLES: StarterRole[] = [
     isSystem: false,
     grants: [
       { key: "leads.view", scope: "all" },
+      { key: "intake.view", scope: "team" },
       { key: "intake.create", scope: "team" },
       { key: "intake.edit", scope: "team" },
       { key: "intake.review", scope: "team" },
@@ -72,6 +75,7 @@ const STARTER_ROLES: StarterRole[] = [
     isSystem: false,
     grants: [
       { key: "leads.view", scope: "all" },
+      { key: "intake.view", scope: "own" },
       { key: "intake.create", scope: "own" },
       { key: "intake.edit", scope: "own" },
       { key: "leaderboard.view", scope: "own" },

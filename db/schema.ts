@@ -5,8 +5,10 @@ import {
   boolean,
   timestamp,
   integer,
+  jsonb,
   pgEnum,
   uniqueIndex,
+  index,
   primaryKey,
 } from "drizzle-orm/pg-core";
 
@@ -120,6 +122,11 @@ export const leadIndex = pgTable("lead_index", {
   syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("lead_index_source_id_idx").on(table.sourceId),
+  // Backs the LP-match lookup (§6.3) — checked fresh on every intake
+  // record view, not stored, so a lead arriving AFTER the call is still
+  // caught (see lib/intake-match.ts).
+  index("lead_index_phone_idx").on(table.phone),
+  index("lead_index_email_idx").on(table.email),
 ]);
 
 // Contact fields on the Lead Feed are masked by default, reveal-on-click
@@ -131,3 +138,64 @@ export const leadReveals = pgTable("lead_reveals", {
   leadIndexId: integer("lead_index_id").notNull().references(() => leadIndex.id, { onDelete: "cascade" }),
   revealedAt: timestamp("revealed_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Call Intake (§6). "Rejected" requires a reason code (§6.2 — what turns
+// "worth it or not" into analysable data instead of an agent's opinion).
+export const intakeStageEnum = pgEnum("intake_stage", [
+  "new", "attempted", "contacted", "qualified", "sent_to_lp", "confirmed", "rejected", "dead",
+]);
+
+// One wrapper table for every form type, not one table per form (§6.6 —
+// "developer builds each form" means the UI/validation per formType, not
+// a new physical table each time). Form-specific fields live in
+// `answers`; phone/email are pulled out as real columns because the
+// LP-match (§6.3) and future dedup checks need to query them directly —
+// reaching into JSONB for that would be slow and unindexable in
+// practice.
+export const intakeRecords = pgTable("intake_records", {
+  id: serial("id").primaryKey(),
+  formType: text("form_type").notNull(),
+  ownerId: integer("owner_id").notNull().references(() => users.id),
+  phone: text("phone").notNull(),
+  email: text("email").notNull(),
+  stage: intakeStageEnum("stage").notNull().default("new"),
+  rejectionReason: text("rejection_reason"),
+  followUpAt: timestamp("follow_up_at", { withTimezone: true }),
+  // The form's actual fields (Claimant Information, accident details,
+  // etc. for form #1) — shape depends on formType, validated in code
+  // against a per-formType schema, not enforced by the database.
+  answers: jsonb("answers").notNull(),
+  // TL review (§6 flow: agent works it -> TL confirms scored or not).
+  scoredByTl: boolean("scored_by_tl").notNull().default(false),
+  tlReviewedBy: integer("tl_reviewed_by").references(() => users.id),
+  tlReviewedAt: timestamp("tl_reviewed_at", { withTimezone: true }),
+  tlComment: text("tl_comment"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("intake_records_owner_idx").on(table.ownerId),
+  index("intake_records_stage_idx").on(table.stage),
+  index("intake_records_phone_idx").on(table.phone),
+  index("intake_records_email_idx").on(table.email),
+]);
+
+// Immutable audit trail (§6.5) — required, not optional, because
+// managers can edit other people's records and the leaderboard (Phase 3)
+// is computed from this same history. Never updated or deleted; a
+// correction is a new event, not an edit to an old one.
+export const intakeEventTypeEnum = pgEnum("intake_event_type", [
+  "created", "field_changed", "stage_changed", "tl_reviewed", "assigned",
+]);
+
+export const intakeEvents = pgTable("intake_events", {
+  id: serial("id").primaryKey(),
+  intakeRecordId: integer("intake_record_id").notNull().references(() => intakeRecords.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  eventType: intakeEventTypeEnum("event_type").notNull(),
+  // Flexible payload — shape depends on eventType, e.g. for
+  // stage_changed: { from: "new", to: "contacted" }.
+  detail: jsonb("detail").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("intake_events_record_idx").on(table.intakeRecordId),
+]);
