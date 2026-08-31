@@ -208,3 +208,29 @@ export const intakeEvents = pgTable("intake_events", {
 }, (table) => [
   index("intake_events_record_idx").on(table.intakeRecordId),
 ]);
+
+// Admin action audit trail — who did what to which user/role, when.
+// Built after a real incident (2026-09-01): a Manager deleted the
+// super_admin account with zero record of it happening. Deliberately
+// NOT foreign-keyed to users on either side — the whole point is
+// surviving the deletion of the very account it's logging, so both
+// actor and target are captured as plain ids + a name/email snapshot
+// taken at write time, not a live join that breaks once someone's gone.
+export const auditActionEnum = pgEnum("audit_action", [
+  "user_invited", "user_updated", "user_deactivated", "user_reactivated", "user_deleted", "user_force_reset",
+  "role_created", "role_permissions_updated", "role_deleted",
+]);
+
+export const auditLog = pgTable("audit_log", {
+  id: serial("id").primaryKey(),
+  actorId: integer("actor_id").notNull(),
+  actorLabel: text("actor_label").notNull(),
+  action: auditActionEnum("action").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: integer("target_id"),
+  targetLabel: text("target_label").notNull(),
+  detail: jsonb("detail"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("audit_log_created_idx").on(table.createdAt),
+]);

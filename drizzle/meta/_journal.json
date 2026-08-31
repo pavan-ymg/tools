@@ -50,6 +50,13 @@
       "when": 1788191041484,
       "tag": "0006_milky_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788203577182,
+      "tag": "0007_gray_phantom_reporter",
+      "breakpoints": true
     }
   ]
 }

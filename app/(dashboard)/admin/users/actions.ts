@@ -8,6 +8,7 @@ import { users, roles, userRoles } from "@/db/schema";
 import { can } from "@/lib/permissions";
 import { createAuthToken } from "@/lib/auth-tokens";
 import { sendInviteEmail } from "@/lib/email";
+import { logAudit } from "@/lib/audit";
 
 const INVITE_TTL_MS = 72 * 60 * 60 * 1000; // §3.6.3 — 72h, survives a Friday invite over the weekend
 
@@ -57,8 +58,9 @@ export async function inviteUserAction(
   _prevState: InviteResult | undefined,
   formData: FormData
 ): Promise<InviteResult> {
+  let actorId: number;
   try {
-    await requireUsersManage();
+    actorId = await requireUsersManage();
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Not permitted." };
   }
@@ -84,6 +86,12 @@ export async function inviteUserAction(
 
   await db.insert(userRoles).values(roleIds.map((roleId) => ({ userId: user.id, roleId })));
 
+  const grantedRoles = await db.select({ name: roles.name }).from(roles).where(inArray(roles.id, roleIds));
+  await logAudit(actorId, "user_invited", "user", user.id, `${name} (${email})`, {
+    roles: grantedRoles.map((r) => r.name),
+    managerId,
+  });
+
   const token = await createAuthToken(user.id, "invite", INVITE_TTL_MS);
   const inviteUrl = `${await baseUrl()}/invite/${token}`;
 
@@ -102,7 +110,10 @@ export async function inviteUserAction(
 }
 
 export async function updateUserAction(id: number, formData: FormData): Promise<void> {
-  await requireUsersManage();
+  const actorId = await requireUsersManage();
+
+  const [target] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  if (!target) return;
 
   const managerIdRaw = formData.get("managerId") as string;
   const managerId = managerIdRaw ? Number(managerIdRaw) : null;
@@ -126,6 +137,13 @@ export async function updateUserAction(id: number, formData: FormData): Promise<
   if (roleIds.length > 0) {
     await db.insert(userRoles).values(roleIds.map((roleId) => ({ userId: id, roleId })));
   }
+
+  const grantedRoles = await db.select({ name: roles.name }).from(roles).where(inArray(roles.id, roleIds));
+  await logAudit(actorId, "user_updated", "user", id, `${target.name} (${target.email})`, {
+    managerId,
+    isActive,
+    roles: grantedRoles.map((r) => r.name),
+  });
 }
 
 /**
@@ -134,12 +152,18 @@ export async function updateUserAction(id: number, formData: FormData): Promise<
  * issues a fresh reset link — for offboarding or a compromised account.
  */
 export async function forceResetAction(id: number): Promise<{ resetUrl: string }> {
-  await requireUsersManage();
+  const actorId = await requireUsersManage();
+
+  const [target] = await db.select().from(users).where(eq(users.id, id)).limit(1);
 
   await db
     .update(users)
     .set({ sessionVersion: sql`${users.sessionVersion} + 1`, updatedAt: new Date() })
     .where(eq(users.id, id));
+
+  if (target) {
+    await logAudit(actorId, "user_force_reset", "user", id, `${target.name} (${target.email})`);
+  }
 
   const token = await createAuthToken(id, "reset", 60 * 60 * 1000);
   return { resetUrl: `${await baseUrl()}/reset-password/${token}` };
@@ -165,13 +189,17 @@ export async function getUserRoleIds(userId: number): Promise<number[]> {
 }
 
 export async function toggleUserActiveAction(id: number, nextActive: boolean): Promise<{ error?: string }> {
-  await requireUsersManage();
+  const actorId = await requireUsersManage();
 
   if (!nextActive && (await isSuperAdmin(id))) {
     return { error: "Can't deactivate a super_admin account." };
   }
 
+  const [target] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  if (!target) return { error: "User not found." };
+
   await db.update(users).set({ isActive: nextActive, updatedAt: new Date() }).where(eq(users.id, id));
+  await logAudit(actorId, nextActive ? "user_reactivated" : "user_deactivated", "user", id, `${target.name} (${target.email})`);
   return {};
 }
 
@@ -195,6 +223,7 @@ export async function deleteUserAction(id: number): Promise<{ error?: string }> 
 
   try {
     await db.delete(users).where(eq(users.id, id));
+    await logAudit(currentUserId, "user_deleted", "user", id, `${target.name} (${target.email})`);
     return {};
   } catch {
     return {

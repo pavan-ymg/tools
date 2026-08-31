@@ -82,6 +82,11 @@ export default async function DashboardLayout({
             Roles
           </Link>
         )}
+        {canManageRoles && (
+          <Link href="/admin/audit" style={{ color: "var(--text-secondary)" }}>
+            Audit Log
+          </Link>
+        )}
         <form action={signOutAction} style={{ marginLeft: "auto" }}>
           <button
             type="submit"

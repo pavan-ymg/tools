@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { roles, permissions, rolePermissions, userRoles } from "@/db/schema";
 import { can } from "@/lib/permissions";
+import { logAudit } from "@/lib/audit";
 
 // §3.5: super admin composes roles from the developer-defined
 // permission catalogue but can never invent a new permission key —
@@ -23,8 +24,9 @@ export async function createRoleAction(
   _prevState: string | undefined,
   formData: FormData
 ): Promise<string | undefined> {
+  let actorId: number;
   try {
-    await requireRolesManage();
+    actorId = await requireRolesManage();
   } catch (err) {
     return err instanceof Error ? err.message : "Not permitted.";
   }
@@ -37,6 +39,7 @@ export async function createRoleAction(
   if (existing) return "That slug is already in use.";
 
   const [role] = await db.insert(roles).values({ name, slug, isSystem: false }).returning();
+  await logAudit(actorId, "role_created", "role", role.id, name);
 
   // Optional starting point — copy an existing role's grants onto the
   // new one instead of everything defaulting to None. Never offered for
@@ -61,7 +64,7 @@ export async function createRoleAction(
 }
 
 export async function updateRolePermissionsAction(roleId: number, formData: FormData): Promise<void> {
-  await requireRolesManage();
+  const actorId = await requireRolesManage();
 
   const [role] = await db.select().from(roles).where(eq(roles.id, roleId)).limit(1);
   // super_admin bypasses every check in code (lib/permissions.ts) —
@@ -74,7 +77,7 @@ export async function updateRolePermissionsAction(roleId: number, formData: Form
   await db.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId));
 
   const newGrants = allPermissions
-    .map((p) => ({ permissionId: p.id, scope: formData.get(`scope_${p.id}`) as string }))
+    .map((p) => ({ permissionId: p.id, key: p.key, scope: formData.get(`scope_${p.id}`) as string }))
     .filter((g) => g.scope === "own" || g.scope === "team" || g.scope === "all");
 
   if (newGrants.length > 0) {
@@ -82,10 +85,14 @@ export async function updateRolePermissionsAction(roleId: number, formData: Form
       newGrants.map((g) => ({ roleId, permissionId: g.permissionId, scope: g.scope as "own" | "team" | "all" }))
     );
   }
+
+  await logAudit(actorId, "role_permissions_updated", "role", roleId, role.name, {
+    grants: newGrants.map((g) => ({ key: g.key, scope: g.scope })),
+  });
 }
 
 export async function deleteRoleAction(roleId: number): Promise<{ error?: string }> {
-  await requireRolesManage();
+  const actorId = await requireRolesManage();
 
   const [role] = await db.select().from(roles).where(eq(roles.id, roleId)).limit(1);
   if (!role) return { error: "Role not found." };
@@ -96,5 +103,6 @@ export async function deleteRoleAction(roleId: number): Promise<{ error?: string
 
   await db.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId));
   await db.delete(roles).where(and(eq(roles.id, roleId), eq(roles.isSystem, false)));
+  await logAudit(actorId, "role_deleted", "role", roleId, role.name);
   return {};
 }
