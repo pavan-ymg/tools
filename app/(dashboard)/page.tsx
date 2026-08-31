@@ -141,22 +141,22 @@ export default async function DashboardHomePage() {
       )}
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 32 }}>
-        <Link href="/leads" style={{ ...cardStyle, flex: "1 1 180px", textDecoration: "none", color: "var(--text-primary)" }}>
+        <Link href="/leads" className="card-link" style={{ ...cardStyle, flex: "1 1 180px", textDecoration: "none", color: "var(--text-primary)" }}>
           <span style={{ fontWeight: 500, fontSize: 14 }}>Lead Feed</span>
           <span style={statLabelStyle}>Every LP submission as it arrives</span>
         </Link>
         {FORM_REGISTRY.length > 0 && (
-          <Link href="/intake/new" style={{ ...cardStyle, flex: "1 1 180px", textDecoration: "none", color: "var(--text-primary)" }}>
+          <Link href="/intake/new" className="card-link" style={{ ...cardStyle, flex: "1 1 180px", textDecoration: "none", color: "var(--text-primary)" }}>
             <span style={{ fontWeight: 500, fontSize: 14 }}>New Intake</span>
             <span style={statLabelStyle}>Log a call for a campaign</span>
           </Link>
         )}
-        <Link href="/intake" style={{ ...cardStyle, flex: "1 1 180px", textDecoration: "none", color: "var(--text-primary)" }}>
+        <Link href="/intake" className="card-link" style={{ ...cardStyle, flex: "1 1 180px", textDecoration: "none", color: "var(--text-primary)" }}>
           <span style={{ fontWeight: 500, fontSize: 14 }}>Intake Records</span>
           <span style={statLabelStyle}>{dueCount ? `${dueCount} due for follow-up` : "Search and review past calls"}</span>
         </Link>
         {canViewLeaderboard && (
-          <Link href="/leaderboard" style={{ ...cardStyle, flex: "1 1 180px", textDecoration: "none", color: "var(--text-primary)" }}>
+          <Link href="/leaderboard" className="card-link" style={{ ...cardStyle, flex: "1 1 180px", textDecoration: "none", color: "var(--text-primary)" }}>
             <span style={{ fontWeight: 500, fontSize: 14 }}>Leaderboard</span>
             <span style={statLabelStyle}>See where everyone stands</span>
           </Link>

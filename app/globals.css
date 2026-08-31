@@ -46,6 +46,89 @@ a {
   color: var(--accent);
 }
 
+/* Every clickable-but-not-a-full-button element gets one of these, so
+   nothing reads as static text when it actually navigates or triggers
+   an action — nav items, table row actions, filter "Clear" links,
+   card-style link tiles, and toggle chips (page-size, leaderboard
+   window). Kept as classes (not relying on inline hover, which React
+   style objects can't express) so :hover actually fires. */
+.nav-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-link:hover {
+  background: rgba(216, 178, 107, 0.1);
+  color: var(--text-primary);
+}
+.nav-link.active {
+  background: rgba(216, 178, 107, 0.16);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.card-link {
+  transition: background 0.15s ease;
+}
+.card-link:hover {
+  background: rgba(216, 178, 107, 0.1) !important;
+}
+
+.row-action {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  transition: background 0.15s ease, text-decoration 0.15s ease;
+}
+.row-action:hover {
+  background: rgba(216, 178, 107, 0.12);
+  text-decoration: underline;
+}
+
+.chip {
+  transition: background 0.15s ease;
+}
+.chip:hover {
+  background: rgba(216, 178, 107, 0.18) !important;
+}
+
+.text-link {
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+.text-link:hover {
+  border-bottom-color: currentColor;
+}
+
+/* Same gold floral flourish ymg-legal.com uses as a low-opacity corner
+   decoration (public/flowers/vcardBG.svg there) — purely decorative,
+   fixed so it doesn't scroll with content, never intercepts clicks. */
+.flower-decoration {
+  position: fixed;
+  width: 480px;
+  height: 344px;
+  background: url('/flower-pattern.svg') no-repeat center / contain;
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: 0;
+}
+.flower-decoration-br {
+  bottom: -60px;
+  right: -60px;
+}
+.flower-decoration-tl {
+  top: -60px;
+  left: -60px;
+  transform: rotate(180deg);
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

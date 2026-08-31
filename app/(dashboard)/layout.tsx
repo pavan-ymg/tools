@@ -8,6 +8,7 @@ import { can } from "@/lib/permissions";
 import { getDueFollowUpCount } from "@/lib/intake-stats";
 import { isSuperAdmin } from "./admin/users/actions";
 import { signOutAction } from "./actions";
+import NavLinks from "./NavLinks";
 
 /**
  * Gate for every dashboard route. proxy.ts only checks "is there a
@@ -57,15 +58,6 @@ export default async function DashboardLayout({
   const isSuperAdminUser = await isSuperAdmin(current.id);
   const dueCount = await getDueFollowUpCount(current.id);
 
-  const linkStyle: React.CSSProperties = {
-    color: "var(--text-secondary)",
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "8px 10px",
-    borderRadius: 6,
-  };
-
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <nav
@@ -88,58 +80,26 @@ export default async function DashboardLayout({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/ymg-legal-logo.svg" alt="YMG Legal" style={{ height: 48, width: "auto" }} />
         </Link>
-        <Link href="/leads" style={linkStyle}>
-          Lead Feed
-        </Link>
-        <Link href="/intake/new" style={linkStyle}>
-          New Intake
-        </Link>
-        <Link href="/intake" style={linkStyle}>
-          Intake Records
-          {!!dueCount && (
-            <span
-              style={{
-                background: "var(--danger)",
-                color: "white",
-                borderRadius: 999,
-                fontSize: 11,
-                lineHeight: 1,
-                padding: "2px 6px",
-              }}
-            >
-              {dueCount}
-            </span>
-          )}
-        </Link>
-        <Link href="/leaderboard" style={linkStyle}>
-          Leaderboard
-        </Link>
-        {canManageUsers && (
-          <Link href="/admin/users" style={linkStyle}>
-            Users
-          </Link>
-        )}
-        {canManageRoles && (
-          <Link href="/admin/roles" style={linkStyle}>
-            Roles
-          </Link>
-        )}
-        {isSuperAdminUser && (
-          <Link href="/admin/audit" style={linkStyle}>
-            Audit Log
-          </Link>
-        )}
+        <NavLinks
+          canManageUsers={canManageUsers}
+          canManageRoles={canManageRoles}
+          isSuperAdminUser={isSuperAdminUser}
+          dueCount={dueCount ?? 0}
+        />
 
         <form action={signOutAction} style={{ marginTop: "auto", paddingTop: 20 }}>
           <button
             type="submit"
+            className="chip"
             style={{
               background: "transparent",
-              border: "none",
-              color: "var(--text-secondary)",
+              border: "1px solid var(--glass-border)",
+              color: "var(--text-primary)",
               fontSize: 13,
+              fontWeight: 500,
               cursor: "pointer",
               padding: "8px 10px",
+              borderRadius: 6,
               width: "100%",
               textAlign: "left",
             }}

@@ -13,7 +13,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <div className="flower-decoration flower-decoration-br" aria-hidden="true" />
+        <div className="flower-decoration flower-decoration-tl" aria-hidden="true" />
+        {children}
+      </body>
     </html>
   );
 }

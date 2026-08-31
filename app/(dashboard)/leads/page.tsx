@@ -155,6 +155,7 @@ export default async function LeadsPage({
         {query && (
           <a
             href={`/leads?pageSize=${pageSize}`}
+            className="text-link"
             style={{ display: "flex", alignItems: "center", color: "var(--text-secondary)", fontSize: 13 }}
           >
             Clear
@@ -169,6 +170,7 @@ export default async function LeadsPage({
             <Link
               key={size}
               href={`/leads?pageSize=${size}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
+              className="chip"
               style={{
                 padding: "4px 10px",
                 borderRadius: 6,

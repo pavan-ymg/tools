@@ -4,14 +4,26 @@ import { FORM_REGISTRY } from "@/lib/forms/registry";
 export default function NewIntakePickerPage() {
   return (
     <main style={{ padding: 32, maxWidth: 640 }}>
-      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>New Intake</h1>
-      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8 }}>
-        Choose which client this call is for.
-      </p>
-      <p style={{ marginBottom: 24 }}>
-        <Link href="/intake" style={{ fontSize: 13, color: "var(--accent)" }}>
-          View existing intake records →
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600 }}>New Intake</h1>
+        <Link
+          href="/intake"
+          style={{
+            fontSize: 13,
+            fontWeight: 500,
+            color: "var(--accent)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: 6,
+            padding: "8px 14px",
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          View intake records →
         </Link>
+      </div>
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
+        Choose which client this call is for.
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -19,6 +31,7 @@ export default function NewIntakePickerPage() {
           <Link
             key={form.formType}
             href={form.href}
+            className="card-link"
             style={{
               display: "flex",
               justifyContent: "space-between",

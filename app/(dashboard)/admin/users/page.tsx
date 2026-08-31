@@ -27,11 +27,19 @@ export default async function UsersListPage() {
   const rolesByUserId = new Map<number, string[]>();
   const superAdminUserIds = new Set<number>();
   for (const ur of allUserRoles) {
+    if (systemRoleIds.has(ur.roleId)) {
+      // The system role is hidden from the UI everywhere, including on
+      // the account that holds it (Pavan, 2026-09-01: "remove the super
+      // admin from all the sites even from the super admin") — it never
+      // appears as a displayed role name, only the superAdminUserIds
+      // set (used to hide Edit/Deactivate/Delete for that row) tracks it.
+      superAdminUserIds.add(ur.userId);
+      continue;
+    }
     const list = rolesByUserId.get(ur.userId) ?? [];
     const name = roleNameById.get(ur.roleId);
     if (name) list.push(name);
     rolesByUserId.set(ur.userId, list);
-    if (systemRoleIds.has(ur.roleId)) superAdminUserIds.add(ur.userId);
   }
 
   return (
@@ -58,7 +66,9 @@ export default async function UsersListPage() {
             </tr>
           </thead>
           <tbody>
-            {allUsers.map((u) => {
+            {allUsers
+              .filter((u) => !superAdminUserIds.has(u.id))
+              .map((u) => {
               const pending = !u.passwordHash;
               return (
                 <tr key={u.id}>
@@ -74,11 +84,22 @@ export default async function UsersListPage() {
                     {(rolesByUserId.get(u.id) ?? []).join(", ") || "—"}
                   </td>
                   <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                      <Link href={`/admin/users/${u.id}`} style={{ color: "var(--accent)" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      <Link
+                        href={`/admin/users/${u.id}`}
+                        className="chip"
+                        style={{
+                          fontSize: 12,
+                          padding: "5px 10px",
+                          borderRadius: 5,
+                          border: "1px solid var(--glass-border)",
+                          color: "var(--text-primary)",
+                          textDecoration: "none",
+                        }}
+                      >
                         Edit
                       </Link>
-                      {!superAdminUserIds.has(u.id) && <UserRowActions userId={u.id} name={u.name} isActive={u.isActive} />}
+                      <UserRowActions userId={u.id} name={u.name} isActive={u.isActive} />
                     </div>
                   </td>
                 </tr>

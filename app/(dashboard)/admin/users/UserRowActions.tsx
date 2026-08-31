@@ -31,12 +31,21 @@ export default function UserRowActions({ userId, name, isActive }: { userId: num
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-      <div style={{ display: "flex", gap: 12 }}>
+      <div style={{ display: "flex", gap: 8 }}>
         <button
           type="button"
           disabled={pending}
           onClick={toggleActive}
-          style={{ background: "transparent", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 13, padding: 0 }}
+          className="chip"
+          style={{
+            background: "transparent",
+            border: "1px solid var(--glass-border)",
+            color: "var(--text-primary)",
+            cursor: pending ? "default" : "pointer",
+            fontSize: 12,
+            padding: "5px 10px",
+            borderRadius: 5,
+          }}
         >
           {isActive ? "Deactivate" : "Reactivate"}
         </button>
@@ -44,7 +53,16 @@ export default function UserRowActions({ userId, name, isActive }: { userId: num
           type="button"
           disabled={pending}
           onClick={handleDelete}
-          style={{ background: "transparent", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: 13, padding: 0 }}
+          className="chip"
+          style={{
+            background: "transparent",
+            border: "1px solid var(--danger)",
+            color: "var(--danger)",
+            cursor: pending ? "default" : "pointer",
+            fontSize: 12,
+            padding: "5px 10px",
+            borderRadius: 5,
+          }}
         >
           Delete
         </button>

@@ -80,7 +80,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const grantedRoles = await db
-          .select({ slug: roles.slug })
+          .select({ slug: roles.slug, isSystem: roles.isSystem })
           .from(userRoles)
           .innerJoin(roles, eq(userRoles.roleId, roles.id))
           .where(eq(userRoles.userId, user.id));
@@ -91,8 +91,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           // UI hints only — never used to make an authorization
           // decision. Every real permission check goes through
-          // lib/permissions.ts against the database.
-          roles: grantedRoles.map((r) => r.slug),
+          // lib/permissions.ts against the database. The system role is
+          // excluded even here — it's hidden from the UI everywhere,
+          // including on the account that holds it (Pavan, 2026-09-01).
+          roles: grantedRoles.filter((r) => !r.isSystem).map((r) => r.slug),
           // Stamped into the token at login. Compared against the live
           // DB value on every dashboard request (app/(dashboard)/layout.tsx)
           // — a mismatch means the password changed since this token was

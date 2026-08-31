@@ -48,7 +48,24 @@ export default async function IntakeListPage({
   if (!formType) {
     return (
       <main style={{ padding: 32, maxWidth: 640 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>Intake Records</h1>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 600 }}>Intake Records</h1>
+          <Link
+            href="/intake/new"
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: "var(--accent)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: 6,
+              padding: "8px 14px",
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            New Intake →
+          </Link>
+        </div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
           Choose which client&apos;s records to view.
         </p>
@@ -57,6 +74,7 @@ export default async function IntakeListPage({
             <Link
               key={form.formType}
               href={`/intake?form=${form.formType}`}
+              className="card-link"
               style={{
                 display: "flex",
                 justifyContent: "space-between",
