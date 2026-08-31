@@ -49,7 +49,7 @@ export default function ChangePasswordPage() {
             borderRadius: 6,
             border: "none",
             background: "var(--accent)",
-            color: "white",
+            color: "var(--accent-text)",
             fontWeight: 500,
             cursor: pending ? "default" : "pointer",
             opacity: pending ? 0.7 : 1,

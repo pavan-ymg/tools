@@ -37,7 +37,7 @@ export default async function RolesListPage() {
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Roles</h1>
         <Link
           href="/admin/roles/new"
-          style={{ background: "var(--accent)", color: "white", padding: "8px 16px", borderRadius: 6, fontSize: 13, textDecoration: "none" }}
+          style={{ background: "var(--accent)", color: "var(--accent-text)", padding: "8px 16px", borderRadius: 6, fontSize: 13, textDecoration: "none" }}
         >
           + New role
         </Link>

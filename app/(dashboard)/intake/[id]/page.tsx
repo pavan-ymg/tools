@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { eq, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
@@ -11,6 +10,7 @@ import EditForm from "./EditForm";
 import StageForm from "./StageForm";
 import TlReviewForm from "./TlReviewForm";
 import { updateIntakeAction, changeStageAction, tlReviewAction, setFollowUpAction } from "../actions";
+import BackLink from "@/app/(dashboard)/BackLink";
 
 export default async function IntakeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: idParam } = await params;
@@ -65,11 +65,9 @@ export default async function IntakeDetailPage({ params }: { params: Promise<{ i
 
   return (
     <main style={{ padding: 32, maxWidth: 720 }}>
+      <BackLink href={`/intake?form=${record.formType}`} label="Back to records" />
       <div style={{ marginBottom: 24 }}>
-        <Link href={`/intake?form=${record.formType}`} style={{ fontSize: 13, color: "var(--accent)" }}>
-          ← Back to records
-        </Link>
-        <h1 style={{ fontSize: 20, fontWeight: 600, marginTop: 4 }}>{answers.fullName || "(no name)"}</h1>
+        <h1 style={{ fontSize: 20, fontWeight: 600 }}>{answers.fullName || "(no name)"}</h1>
         <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
           Owner: {owner?.name} · {record.phone} · {record.email}
         </p>
@@ -105,7 +103,7 @@ export default async function IntakeDetailPage({ params }: { params: Promise<{ i
             </label>
             <button
               type="submit"
-              style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: "var(--accent)", color: "white", fontWeight: 500, cursor: "pointer" }}
+              style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--accent-text)", fontWeight: 500, cursor: "pointer" }}
             >
               Save
             </button>

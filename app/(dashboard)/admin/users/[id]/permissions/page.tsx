@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
@@ -6,6 +5,7 @@ import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { can, SCOPE_RANK, type Scope } from "@/lib/permissions";
 import { getUserPermissionOverrideData, updateUserPermissionOverridesAction, isSuperAdmin } from "../../actions";
+import BackLink from "@/app/(dashboard)/BackLink";
 
 const SCOPE_COLUMNS = [
   { value: "own", label: "Own" },
@@ -42,11 +42,7 @@ export default async function UserPermissionsPage({ params }: { params: Promise<
   if (targetIsSuperAdmin) {
     return (
       <main style={{ padding: 32 }}>
-        <div style={{ marginBottom: 4 }}>
-          <Link href={`/admin/users/${id}`} style={{ fontSize: 13, color: "var(--accent)" }}>
-            ← Back to {targetUser.name}
-          </Link>
-        </div>
+        <BackLink href={`/admin/users/${id}`} label={`Back to ${targetUser.name}`} />
         <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>{targetUser.name}</h1>
         <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
           This is a super_admin account — it bypasses every permission check in the app and can&apos;t be overridden here.
@@ -60,11 +56,7 @@ export default async function UserPermissionsPage({ params }: { params: Promise<
 
   return (
     <main style={{ padding: 32, maxWidth: 820 }}>
-      <div style={{ marginBottom: 4 }}>
-        <Link href={`/admin/users/${id}`} style={{ fontSize: 13, color: "var(--accent)" }}>
-          ← Back to {targetUser.name}
-        </Link>
-      </div>
+      <BackLink href={`/admin/users/${id}`} label={`Back to ${targetUser.name}`} />
       <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>Edit permissions — {targetUser.name}</h1>
       <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8 }}>
         An override here always wins over what {targetUser.name}&apos;s role(s) grant, for that one capability only.
@@ -157,7 +149,7 @@ export default async function UserPermissionsPage({ params }: { params: Promise<
             borderRadius: 6,
             border: "none",
             background: "var(--accent)",
-            color: "white",
+            color: "var(--accent-text)",
             fontWeight: 500,
             cursor: "pointer",
           }}

@@ -3,9 +3,10 @@ import { eq, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, auditLog } from "@/db/schema";
-import { can } from "@/lib/permissions";
+import { can, getScope, subordinateIds } from "@/lib/permissions";
 import { getLeaderboard } from "@/lib/leaderboard";
 import { getDueFollowUpCount } from "@/lib/intake-stats";
+import { isSuperAdmin } from "./admin/users/actions";
 import { FORM_REGISTRY } from "@/lib/forms/registry";
 
 const cardStyle: React.CSSProperties = {
@@ -25,37 +26,68 @@ export default async function DashboardHomePage() {
   const userId = Number(session!.user.id);
   const userName = session!.user.name ?? "there";
 
-  const [canViewLeaderboard, canManageUsers, canManageRoles] = await Promise.all([
-    can(userId, "leaderboard.view"),
+  const [leaderboardScope, canManageUsers] = await Promise.all([
+    getScope(userId, "leaderboard.view"),
     can(userId, "users.manage"),
-    can(userId, "roles.manage"),
   ]);
+  const canViewLeaderboard = leaderboardScope !== null;
 
-  // This week's points/rank/target — same weekly leaderboard computation
-  // the Leaderboard page itself uses, just picking out this one user's
-  // row rather than rendering the whole board.
-  let myPoints: number | null = null;
-  let myWorked: number | null = null;
+  // Same own/team/all scope every other screen in this app already
+  // enforces (Pavan, 2026-09-01: "agents will see its things TL will
+  // see teams and Manager will see all") — an Agent's dashboard is about
+  // THEM, a TL's is about their team, a Manager's is company-wide. The
+  // underlying computation always covers everyone (see lib/leaderboard.ts);
+  // what differs here is what gets aggregated and shown.
+  let myPoints = 0;
+  let myWorked = 0;
   let myRank: number | null = null;
   let weeklyTarget: number | null = null;
-  if (canViewLeaderboard) {
+  let groupSummary: { label: string; points: number; activeCount: number; topName: string | null; topPoints: number } | null = null;
+
+  if (leaderboardScope) {
     const [board, [me]] = await Promise.all([
       getLeaderboard("week"),
       db.select({ weeklyTarget: users.weeklyTarget }).from(users).where(eq(users.id, userId)).limit(1),
     ]);
+    weeklyTarget = me?.weeklyTarget ?? null;
+
     const idx = board.findIndex((r) => r.ownerId === userId);
     if (idx !== -1) {
       myPoints = board[idx].points;
       myWorked = board[idx].recordsWorked;
       myRank = idx + 1;
     }
-    weeklyTarget = me?.weeklyTarget ?? null;
+
+    if (leaderboardScope !== "own") {
+      const teamMemberIds = leaderboardScope === "team" ? await subordinateIds(userId) : [];
+      const visibleRows =
+        leaderboardScope === "team"
+          ? (() => {
+              const teamIds = new Set<number>([userId, ...teamMemberIds]);
+              return board.filter((r) => teamIds.has(r.ownerId));
+            })()
+          : board;
+      // board is already sorted desc by points (lib/leaderboard.ts), and
+      // filtering preserves that order — visibleRows[0] is the top
+      // performer within this scope without a second sort.
+      groupSummary = {
+        label: leaderboardScope === "team" ? "Team" : "Company",
+        points: Math.round(visibleRows.reduce((sum, r) => sum + r.points, 0) * 10) / 10,
+        activeCount: visibleRows.length,
+        topName: visibleRows[0]?.ownerName ?? null,
+        topPoints: visibleRows[0]?.points ?? 0,
+      };
+    }
   }
 
   const dueCount = await getDueFollowUpCount(userId);
   const canViewIntake = dueCount !== null;
 
-  const recentAudit = canManageRoles ? await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(5) : [];
+  // Same hardcoded super_admin-only rule as the Audit Log page itself
+  // (Pavan, 2026-09-01: "not even manager") — roles.manage alone isn't
+  // enough to see this summary either.
+  const isSuperAdminUser = await isSuperAdmin(userId);
+  const recentAudit = isSuperAdminUser ? await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(5) : [];
 
   return (
     <main style={{ padding: 32, maxWidth: 960 }}>
@@ -63,21 +95,41 @@ export default async function DashboardHomePage() {
 
       {(canViewLeaderboard || canViewIntake) && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 28 }}>
-          {canViewLeaderboard && (
+          {canViewLeaderboard && !groupSummary && (
             <>
               <div style={cardStyle}>
                 <span style={statLabelStyle}>This week&apos;s points</span>
-                <span style={statValueStyle}>{myPoints ?? 0}</span>
+                <span style={statValueStyle}>{myPoints}</span>
               </div>
               <div style={cardStyle}>
                 <span style={statLabelStyle}>Leaderboard rank</span>
                 <span style={statValueStyle}>{myRank ? `#${myRank}` : "—"}</span>
               </div>
+            </>
+          )}
+          {groupSummary && (
+            <>
               <div style={cardStyle}>
-                <span style={statLabelStyle}>Weekly target</span>
-                <span style={statValueStyle}>{weeklyTarget !== null ? `${myWorked ?? 0}/${weeklyTarget}` : "—"}</span>
+                <span style={statLabelStyle}>{groupSummary.label} points this week</span>
+                <span style={statValueStyle}>{groupSummary.points}</span>
+              </div>
+              <div style={cardStyle}>
+                <span style={statLabelStyle}>Active agents</span>
+                <span style={statValueStyle}>{groupSummary.activeCount}</span>
+              </div>
+              <div style={cardStyle}>
+                <span style={statLabelStyle}>Top performer</span>
+                <span style={{ ...statValueStyle, fontSize: 16 }}>
+                  {groupSummary.topName ? `${groupSummary.topName} (${groupSummary.topPoints})` : "—"}
+                </span>
               </div>
             </>
+          )}
+          {canViewLeaderboard && (
+            <div style={cardStyle}>
+              <span style={statLabelStyle}>Weekly target</span>
+              <span style={statValueStyle}>{weeklyTarget !== null ? `${myWorked}/${weeklyTarget}` : "—"}</span>
+            </div>
           )}
           {canViewIntake && (
             <div style={cardStyle}>
@@ -111,11 +163,22 @@ export default async function DashboardHomePage() {
         )}
       </div>
 
-      {canManageRoles && (
+      {isSuperAdminUser && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
             <h2 style={{ fontSize: 15, fontWeight: 600 }}>Recent admin activity</h2>
-            <Link href="/admin/audit" style={{ fontSize: 13, color: "var(--accent)" }}>
+            <Link
+              href="/admin/audit"
+              style={{
+                fontSize: 13,
+                fontWeight: 500,
+                color: "var(--accent)",
+                border: "1px solid var(--glass-border)",
+                borderRadius: 6,
+                padding: "6px 12px",
+                textDecoration: "none",
+              }}
+            >
               View full log →
             </Link>
           </div>
@@ -145,8 +208,20 @@ export default async function DashboardHomePage() {
         </div>
       )}
 
-      {canManageUsers && !canManageRoles && (
-        <Link href="/admin/users" style={{ fontSize: 13, color: "var(--accent)" }}>
+      {canManageUsers && !isSuperAdminUser && (
+        <Link
+          href="/admin/users"
+          style={{
+            display: "inline-block",
+            fontSize: 13,
+            fontWeight: 500,
+            color: "var(--accent)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: 6,
+            padding: "8px 14px",
+            textDecoration: "none",
+          }}
+        >
           Manage users →
         </Link>
       )}

@@ -1,16 +1,22 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap');
 
+/* YMG Legal brand theme — same palette as ymg-legal.com's dark mode:
+   dark warm-charcoal background, gold accent (buttons/links/focus),
+   cream body text. Kept as CSS vars so every component (all styled via
+   var(--accent) etc., not hardcoded colors) picks this up for free. */
 :root {
-  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  --glass-bg: rgba(30, 41, 59, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
-  --danger: #ef4444;
-  --success: #10b981;
+  --bg-gradient: radial-gradient(ellipse 1200px 800px at 50% -10%, #2c2413 0%, #191917 46%);
+  --glass-bg: rgba(34, 34, 31, 0.7);
+  --glass-border: rgba(216, 178, 107, 0.42);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+  --text-primary: #EDE7D9;
+  --text-secondary: #8A8478;
+  --accent: #D8B26B;
+  --accent-hover: #E2C898;
+  --accent-text: #1A1A18;
+  --danger: #E0654A;
+  --success: #7FA876;
+  --card-bg: #22221f;
 }
 
 * {
@@ -21,15 +27,23 @@
 
 body {
   font-family: 'Outfit', sans-serif;
-  background: var(--bg-gradient);
+  background: var(--bg-gradient), #191917;
   background-attachment: fixed;
   color: var(--text-primary);
   min-height: 100vh;
   line-height: 1.5;
 }
 
-input, button {
+h1, h2, h3 {
+  font-family: 'Poppins', sans-serif;
+}
+
+input, button, select {
   font-family: inherit;
+}
+
+a {
+  color: var(--accent);
 }
 
 @keyframes spin {

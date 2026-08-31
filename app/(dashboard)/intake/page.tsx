@@ -6,6 +6,7 @@ import { intakeRecords, users } from "@/db/schema";
 import { getScope, subordinateIds, can } from "@/lib/permissions";
 import { FORM_REGISTRY } from "@/lib/forms/registry";
 import type { BeverlyLawAnswers } from "@/lib/forms/beverly-law";
+import BackLink from "@/app/(dashboard)/BackLink";
 
 const STAGE_LABELS: Record<string, string> = {
   new: "New",
@@ -123,11 +124,7 @@ export default async function IntakeListPage({
 
   return (
     <main style={{ padding: 32 }}>
-      <div style={{ marginBottom: 4 }}>
-        <Link href="/intake" style={{ fontSize: 13, color: "var(--accent)" }}>
-          ← All campaigns
-        </Link>
-      </div>
+      <BackLink href="/intake" label="All campaigns" />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>
           Intake Records — {currentForm?.clientName ?? formType}
@@ -153,7 +150,7 @@ export default async function IntakeListPage({
               href={currentForm.href}
               style={{
                 background: "var(--accent)",
-                color: "white",
+                color: "var(--accent-text)",
                 padding: "8px 16px",
                 borderRadius: 6,
                 fontSize: 13,

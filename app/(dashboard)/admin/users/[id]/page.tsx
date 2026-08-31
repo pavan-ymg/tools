@@ -7,6 +7,7 @@ import { users } from "@/db/schema";
 import { can } from "@/lib/permissions";
 import { updateUserAction, listManagerCandidates, listAssignableRoles, getUserRoleIds, isSuperAdmin } from "../actions";
 import ForceResetButton from "./ForceResetButton";
+import BackLink from "@/app/(dashboard)/BackLink";
 
 const inputStyle: React.CSSProperties = {
   padding: "8px 10px",
@@ -48,13 +49,30 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
 
   return (
     <main style={{ padding: 32, maxWidth: 420 }}>
-      <div style={{ marginBottom: 4 }}>
-        <Link href="/admin/users" style={{ fontSize: 13, color: "var(--accent)" }}>
-          ← Back to Users
-        </Link>
+      <BackLink href="/admin/users" label="Back to Users" />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>{targetUser.name}</h1>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{targetUser.email}</p>
+        </div>
+        {!targetIsSuperAdmin && (
+          <Link
+            href={`/admin/users/${id}/permissions`}
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: "var(--accent)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: 6,
+              padding: "8px 14px",
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Edit permissions →
+          </Link>
+        )}
       </div>
-      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>{targetUser.name}</h1>
-      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>{targetUser.email}</p>
 
       <form action={boundUpdate} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -112,21 +130,13 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
 
         <button
           type="submit"
-          style={{ padding: "10px 0", borderRadius: 6, border: "none", background: "var(--accent)", color: "white", fontWeight: 500, cursor: "pointer" }}
+          style={{ padding: "10px 0", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--accent-text)", fontWeight: 500, cursor: "pointer" }}
         >
           Save
         </button>
       </form>
 
       <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid var(--glass-border)" }}>
-        {!targetIsSuperAdmin && (
-          <Link
-            href={`/admin/users/${id}/permissions`}
-            style={{ fontSize: 13, color: "var(--accent)", display: "inline-block", marginBottom: 16 }}
-          >
-            Edit individual permissions →
-          </Link>
-        )}
         <ForceResetButton userId={id} />
       </div>
     </main>

@@ -49,7 +49,7 @@ export default function TlReviewForm({
       <button
         type="submit"
         disabled={pending}
-        style={{ padding: "8px 0", borderRadius: 6, border: "none", background: "var(--accent)", color: "white", fontWeight: 500, cursor: pending ? "default" : "pointer" }}
+        style={{ padding: "8px 0", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--accent-text)", fontWeight: 500, cursor: pending ? "default" : "pointer" }}
       >
         {pending ? "Saving…" : "Save review"}
       </button>

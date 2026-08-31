@@ -40,7 +40,7 @@ export default async function UsersListPage() {
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Users</h1>
         <Link
           href="/admin/users/invite"
-          style={{ background: "var(--accent)", color: "white", padding: "8px 16px", borderRadius: 6, fontSize: 13, textDecoration: "none" }}
+          style={{ background: "var(--accent)", color: "var(--accent-text)", padding: "8px 16px", borderRadius: 6, fontSize: 13, textDecoration: "none" }}
         >
           + Invite user
         </Link>

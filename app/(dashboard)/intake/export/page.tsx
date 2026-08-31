@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { FORM_REGISTRY } from "@/lib/forms/registry";
 import ExportButton from "./ExportButton";
+import BackLink from "@/app/(dashboard)/BackLink";
 
 export default async function ExportPage() {
   const session = await auth();
@@ -18,11 +18,7 @@ export default async function ExportPage() {
 
   return (
     <main style={{ padding: 32, maxWidth: 640 }}>
-      <div style={{ marginBottom: 4 }}>
-        <Link href="/intake" style={{ fontSize: 13, color: "var(--accent)" }}>
-          ← Back to Intake Records
-        </Link>
-      </div>
+      <BackLink href="/intake" label="Back to Intake Records" />
       <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>Export</h1>
       <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
         Downloads call-intake records as a CSV file, one client&apos;s form at a time — data stays in this tool rather than pushing to the CRM.

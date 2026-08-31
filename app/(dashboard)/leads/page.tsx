@@ -174,7 +174,7 @@ export default async function LeadsPage({
                 borderRadius: 6,
                 border: "1px solid var(--glass-border)",
                 background: pageSize === size ? "var(--accent)" : "transparent",
-                color: pageSize === size ? "white" : "var(--text-secondary)",
+                color: pageSize === size ? "var(--accent-text)" : "var(--text-secondary)",
                 textDecoration: "none",
               }}
             >

@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { listAssignableRoles, listManagerCandidates } from "../actions";
 import InviteUserForm from "./InviteUserForm";
+import BackLink from "@/app/(dashboard)/BackLink";
 
 export default async function InviteUserPage() {
   const session = await auth();
@@ -20,11 +20,7 @@ export default async function InviteUserPage() {
 
   return (
     <main style={{ padding: 32 }}>
-      <div style={{ marginBottom: 4 }}>
-        <Link href="/admin/users" style={{ fontSize: 13, color: "var(--accent)" }}>
-          ← Back to Users
-        </Link>
-      </div>
+      <BackLink href="/admin/users" label="Back to Users" />
       <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 24 }}>Invite a user</h1>
       <InviteUserForm roles={roles} managers={managers} />
     </main>

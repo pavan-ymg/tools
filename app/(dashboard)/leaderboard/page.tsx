@@ -85,7 +85,7 @@ export default async function LeaderboardPage({
               borderRadius: 6,
               border: "1px solid var(--glass-border)",
               background: window === w.key ? "var(--accent)" : "transparent",
-              color: window === w.key ? "white" : "var(--text-secondary)",
+              color: window === w.key ? "var(--accent-text)" : "var(--text-secondary)",
               textDecoration: "none",
             }}
           >

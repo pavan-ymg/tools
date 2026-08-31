@@ -71,7 +71,7 @@ export default function ExportButton({ formType, fileSlug }: { formType: string;
           borderRadius: 6,
           border: "none",
           background: "var(--accent)",
-          color: "white",
+          color: "var(--accent-text)",
           fontWeight: 500,
           cursor: working ? "default" : "pointer",
           opacity: working ? 0.7 : 1,

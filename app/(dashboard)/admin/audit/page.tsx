@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { auditLog } from "@/db/schema";
-import { can } from "@/lib/permissions";
+import { isSuperAdmin } from "../users/actions";
+import BackLink from "@/app/(dashboard)/BackLink";
 
 const ACTION_LABELS: Record<string, string> = {
   user_invited: "Invited user",
@@ -22,12 +22,13 @@ export default async function AuditLogPage() {
   const session = await auth();
   const userId = Number(session!.user.id);
 
-  // Gated on roles.manage rather than a new permission key — this shows
-  // every admin action across users and roles, which is the same trust
-  // level as being able to restructure permissions themselves (§5.16:
-  // built after a Manager deleted the super_admin account with zero
-  // record of it happening).
-  if (!(await can(userId, "roles.manage"))) {
+  // Hardcoded to super_admin only, not the roles.manage permission
+  // (Pavan, 2026-09-01: "only super admin can see the activity of all
+  // things... not even manager") — a Manager can hold roles.manage for
+  // day-to-day role/permission work without also seeing this, since the
+  // log itself was built after a Manager's own action on the super_admin
+  // account went unrecorded (§5.16).
+  if (!(await isSuperAdmin(userId))) {
     return (
       <main style={{ padding: 32 }}>
         <p style={{ color: "var(--text-secondary)" }}>You don&apos;t have permission to view the audit log.</p>
@@ -39,11 +40,7 @@ export default async function AuditLogPage() {
 
   return (
     <main style={{ padding: 32 }}>
-      <div style={{ marginBottom: 4 }}>
-        <Link href="/admin/users" style={{ fontSize: 13, color: "var(--accent)" }}>
-          ← Back to Users
-        </Link>
-      </div>
+      <BackLink href="/admin/users" label="Back to Users" />
       <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>Audit Log</h1>
       <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
         Every user and role management action, most recent first. Survives the deletion of either account involved.

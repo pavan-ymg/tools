@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { can } from "@/lib/permissions";
 import { getDueFollowUpCount } from "@/lib/intake-stats";
+import { isSuperAdmin } from "./admin/users/actions";
 import { signOutAction } from "./actions";
 
 /**
@@ -49,6 +50,11 @@ export default async function DashboardLayout({
 
   const canManageUsers = await can(current.id, "users.manage");
   const canManageRoles = await can(current.id, "roles.manage");
+  // Audit Log visibility is hardcoded to super_admin only, deliberately
+  // NOT tied to roles.manage — a Manager can hold that permission for
+  // day-to-day role work without also seeing this (Pavan, 2026-09-01:
+  // "not even manager").
+  const isSuperAdminUser = await isSuperAdmin(current.id);
   const dueCount = await getDueFollowUpCount(current.id);
 
   const linkStyle: React.CSSProperties = {
@@ -78,9 +84,9 @@ export default async function DashboardLayout({
           overflowY: "auto",
         }}
       >
-        <Link href="/" style={{ display: "flex", alignItems: "center", marginBottom: 20 }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", marginBottom: 28 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/ymg-legal-logo.svg" alt="YMG Legal" style={{ height: 28, width: "auto" }} />
+          <img src="/ymg-legal-logo.svg" alt="YMG Legal" style={{ height: 48, width: "auto" }} />
         </Link>
         <Link href="/leads" style={linkStyle}>
           Lead Feed
@@ -118,7 +124,7 @@ export default async function DashboardLayout({
             Roles
           </Link>
         )}
-        {canManageRoles && (
+        {isSuperAdminUser && (
           <Link href="/admin/audit" style={linkStyle}>
             Audit Log
           </Link>
