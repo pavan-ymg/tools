@@ -62,8 +62,6 @@ export default async function DashboardLayout({
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
-      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
-
       <nav
         style={{
           width: 200,
@@ -72,7 +70,7 @@ export default async function DashboardLayout({
           flexDirection: "column",
           gap: 2,
           padding: "20px 14px",
-          borderLeft: "1px solid var(--glass-border)",
+          borderRight: "1px solid var(--glass-border)",
           fontSize: 13,
           position: "sticky",
           top: 0,
@@ -144,6 +142,8 @@ export default async function DashboardLayout({
           </button>
         </form>
       </nav>
+
+      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
     </div>
   );
 }
