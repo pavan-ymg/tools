@@ -1,38 +1,35 @@
-"use client";
+import Link from "next/link";
+import { FORM_REGISTRY } from "@/lib/forms/registry";
 
-import { useActionState } from "react";
-import { createIntakeAction } from "../actions";
-import IntakeFormFields from "../IntakeFormFields";
-
-export default function NewIntakePage() {
-  const [error, formAction, pending] = useActionState(createIntakeAction, undefined);
-
+export default function NewIntakePickerPage() {
   return (
-    <main style={{ padding: 32, maxWidth: 720 }}>
-      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 24 }}>New Call Intake — Beverly Law</h1>
+    <main style={{ padding: 32, maxWidth: 640 }}>
+      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>New Call Intake</h1>
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
+        Choose which client this call is for.
+      </p>
 
-      <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-        <IntakeFormFields />
-
-        {error && <p style={{ color: "var(--danger)", fontSize: 13 }}>{error}</p>}
-
-        <button
-          type="submit"
-          disabled={pending}
-          style={{
-            padding: "10px 0",
-            borderRadius: 6,
-            border: "none",
-            background: "var(--accent)",
-            color: "white",
-            fontWeight: 500,
-            cursor: pending ? "default" : "pointer",
-            opacity: pending ? 0.7 : 1,
-          }}
-        >
-          {pending ? "Saving…" : "Save intake record"}
-        </button>
-      </form>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {FORM_REGISTRY.map((form) => (
+          <Link
+            key={form.formType}
+            href={form.href}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "14px 16px",
+              border: "1px solid var(--glass-border)",
+              borderRadius: 8,
+              textDecoration: "none",
+              color: "var(--text-primary)",
+            }}
+          >
+            <span style={{ fontWeight: 500, fontSize: 14 }}>{form.clientName}</span>
+            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{form.caseType}</span>
+          </Link>
+        ))}
+      </div>
     </main>
   );
 }
