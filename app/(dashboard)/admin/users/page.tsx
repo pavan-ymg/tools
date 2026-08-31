@@ -78,7 +78,7 @@ export default async function UsersListPage() {
                       <Link href={`/admin/users/${u.id}`} style={{ color: "var(--accent)" }}>
                         Edit
                       </Link>
-                      {!superAdminUserIds.has(u.id) && <UserRowActions userId={u.id} isActive={u.isActive} />}
+                      {!superAdminUserIds.has(u.id) && <UserRowActions userId={u.id} name={u.name} isActive={u.isActive} />}
                     </div>
                   </td>
                 </tr>

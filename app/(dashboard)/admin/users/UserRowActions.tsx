@@ -4,12 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleUserActiveAction, deleteUserAction } from "./actions";
 
-export default function UserRowActions({ userId, isActive }: { userId: number; isActive: boolean }) {
+export default function UserRowActions({ userId, name, isActive }: { userId: number; name: string; isActive: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   function toggleActive() {
+    if (isActive && !window.confirm(`Deactivate ${name}? They'll lose access immediately.`)) return;
     setError(null);
     startTransition(async () => {
       const result = await toggleUserActiveAction(userId, !isActive);
@@ -19,6 +20,7 @@ export default function UserRowActions({ userId, isActive }: { userId: number; i
   }
 
   function handleDelete() {
+    if (!window.confirm(`Permanently delete ${name}? This can't be undone.`)) return;
     setError(null);
     startTransition(async () => {
       const result = await deleteUserAction(userId);
