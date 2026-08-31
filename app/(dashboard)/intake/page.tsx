@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { inArray, eq, desc } from "drizzle-orm";
+import { inArray, eq, and, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { intakeRecords, users } from "@/db/schema";
 import { getScope, subordinateIds, can } from "@/lib/permissions";
+import { FORM_REGISTRY } from "@/lib/forms/registry";
 import type { BeverlyLawAnswers } from "@/lib/forms/beverly-law";
 
 const STAGE_LABELS: Record<string, string> = {
@@ -17,7 +18,11 @@ const STAGE_LABELS: Record<string, string> = {
   dead: "Dead",
 };
 
-export default async function IntakeListPage() {
+export default async function IntakeListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ form?: string }>;
+}) {
   const session = await auth();
   const userId = Number(session!.user.id);
 
@@ -31,6 +36,45 @@ export default async function IntakeListPage() {
       </main>
     );
   }
+
+  const { form: formType } = await searchParams;
+
+  // No campaign picked yet — each client's form has its own answer
+  // shape (§6.6), so a blended list across campaigns doesn't mean
+  // anything. Pick one first, same pattern as /intake/new.
+  if (!formType) {
+    return (
+      <main style={{ padding: 32, maxWidth: 640 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>Intake Records</h1>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
+          Choose which client&apos;s records to view.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {FORM_REGISTRY.map((form) => (
+            <Link
+              key={form.formType}
+              href={`/intake?form=${form.formType}`}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "14px 16px",
+                border: "1px solid var(--glass-border)",
+                borderRadius: 8,
+                textDecoration: "none",
+                color: "var(--text-primary)",
+              }}
+            >
+              <span style={{ fontWeight: 500, fontSize: 14 }}>{form.clientName}</span>
+              <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{form.caseType}</span>
+            </Link>
+          ))}
+        </div>
+      </main>
+    );
+  }
+
+  const currentForm = FORM_REGISTRY.find((f) => f.formType === formType);
 
   let query = db
     .select({
@@ -47,20 +91,28 @@ export default async function IntakeListPage() {
     .innerJoin(users, eq(intakeRecords.ownerId, users.id))
     .$dynamic();
 
-  if (scope === "own") {
-    query = query.where(eq(intakeRecords.ownerId, userId));
-  } else if (scope === "team") {
-    const ids = [userId, ...(await subordinateIds(userId))];
-    query = query.where(inArray(intakeRecords.ownerId, ids));
-  }
-  // scope === "all" -> no filter at all
+  const scopeFilter =
+    scope === "own"
+      ? eq(intakeRecords.ownerId, userId)
+      : scope === "team"
+        ? inArray(intakeRecords.ownerId, [userId, ...(await subordinateIds(userId))])
+        : undefined; // scope === "all" -> no owner filter
+
+  query = query.where(scopeFilter ? and(eq(intakeRecords.formType, formType), scopeFilter) : eq(intakeRecords.formType, formType));
 
   const rows = await query.orderBy(desc(intakeRecords.createdAt)).limit(100);
 
   return (
     <main style={{ padding: 32 }}>
+      <div style={{ marginBottom: 4 }}>
+        <Link href="/intake" style={{ fontSize: 13, color: "var(--accent)" }}>
+          ← All campaigns
+        </Link>
+      </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600 }}>Call Intake</h1>
+        <h1 style={{ fontSize: 20, fontWeight: 600 }}>
+          Intake Records — {currentForm?.clientName ?? formType}
+        </h1>
         <div style={{ display: "flex", gap: 12 }}>
           {(await can(userId, "intake.export")) && (
             <Link
@@ -77,19 +129,21 @@ export default async function IntakeListPage() {
               Export
             </Link>
           )}
-          <Link
-            href="/intake/new"
-            style={{
-              background: "var(--accent)",
-              color: "white",
-              padding: "8px 16px",
-              borderRadius: 6,
-              fontSize: 13,
-              textDecoration: "none",
-            }}
-          >
-            + New intake
-          </Link>
+          {currentForm && (
+            <Link
+              href={currentForm.href}
+              style={{
+                background: "var(--accent)",
+                color: "white",
+                padding: "8px 16px",
+                borderRadius: 6,
+                fontSize: 13,
+                textDecoration: "none",
+              }}
+            >
+              + New intake
+            </Link>
+          )}
         </div>
       </div>
 

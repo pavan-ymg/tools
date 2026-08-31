@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { createIntakeAction } from "../../actions";
 import IntakeFormFields from "../../IntakeFormFields";
@@ -9,7 +10,12 @@ export default function NewBeverlyLawIntakePage() {
 
   return (
     <main style={{ padding: 32, maxWidth: 720 }}>
-      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 24 }}>New Call Intake — Beverly Law</h1>
+      <div style={{ marginBottom: 4 }}>
+        <Link href="/intake?form=beverly_law" style={{ fontSize: 13, color: "var(--accent)" }}>
+          ← View Beverly Law records
+        </Link>
+      </div>
+      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 24 }}>New Intake — Beverly Law</h1>
 
       <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 28 }}>
         <IntakeFormFields />

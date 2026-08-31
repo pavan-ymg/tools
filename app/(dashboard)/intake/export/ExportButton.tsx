@@ -17,7 +17,7 @@ function toCsv(rows: ExportRow[]): string {
   return lines.join("\n");
 }
 
-export default function ExportButton() {
+export default function ExportButton({ formType, fileSlug }: { formType: string; fileSlug: string }) {
   const [status, setStatus] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
 
@@ -34,7 +34,7 @@ export default function ExportButton() {
       // (Vercel Hobby's ~10s ceiling), so this scales regardless of
       // how many records exist.
       while (hasMore) {
-        const { rows, hasMore: more } = await getExportPage(offset);
+        const { rows, hasMore: more } = await getExportPage(offset, formType);
         allRows.push(...rows);
         hasMore = more;
         offset += rows.length;
@@ -46,7 +46,7 @@ export default function ExportButton() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `intake-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `intake-${fileSlug}-${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -77,7 +77,7 @@ export default function ExportButton() {
           opacity: working ? 0.7 : 1,
         }}
       >
-        {working ? "Exporting…" : "Export all intake records (CSV)"}
+        {working ? "Exporting…" : "Export (CSV)"}
       </button>
       {status && <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{status}</p>}
     </div>

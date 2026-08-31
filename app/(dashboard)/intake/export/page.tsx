@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
+import { FORM_REGISTRY } from "@/lib/forms/registry";
 import ExportButton from "./ExportButton";
 
 export default async function ExportPage() {
@@ -15,12 +16,33 @@ export default async function ExportPage() {
   }
 
   return (
-    <main style={{ padding: 32 }}>
-      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Export</h1>
+    <main style={{ padding: 32, maxWidth: 640 }}>
+      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>Export</h1>
       <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
-        Downloads every call-intake record as a CSV file, since data stays in this tool rather than pushing to the CRM.
+        Downloads call-intake records as a CSV file, one client&apos;s form at a time — data stays in this tool rather than pushing to the CRM.
       </p>
-      <ExportButton />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {FORM_REGISTRY.map((form) => (
+          <div
+            key={form.formType}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "14px 16px",
+              border: "1px solid var(--glass-border)",
+              borderRadius: 8,
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 500, fontSize: 14 }}>{form.clientName}</div>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{form.caseType}</div>
+            </div>
+            <ExportButton formType={form.formType} fileSlug={form.formType} />
+          </div>
+        ))}
+      </div>
     </main>
   );
 }

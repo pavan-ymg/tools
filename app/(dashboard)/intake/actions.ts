@@ -186,10 +186,13 @@ const EXPORT_PAGE_SIZE = 200;
 export type ExportRow = Record<string, string>;
 
 /**
- * One page of flattened rows for CSV export. Paginated + assembled
- * client-side on purpose (docs/tools/PLAN.md — Vercel Hobby's ~10s
- * function ceiling): this never builds the whole file in one function
- * call, so it scales regardless of how many records exist.
+ * One page of flattened rows for CSV export, scoped to a single
+ * formType (§ "campaign wise" — Pavan's term for "one client/form at a
+ * time", not a literal campaign field) since each export is meant to
+ * cover one client's records, not everything at once. Paginated +
+ * assembled client-side on purpose (docs/tools/PLAN.md — Vercel Hobby's
+ * ~10s function ceiling): this never builds the whole file in one
+ * function call, so it scales regardless of how many records exist.
  *
  * Flattens the Beverly Law answer shape into real columns rather than
  * one JSON blob column — this is the only form type today, so that's
@@ -197,7 +200,10 @@ export type ExportRow = Record<string, string>;
  * (the standing "developer builds each form" decision applies here
  * too, not just to the intake form itself).
  */
-export async function getExportPage(offset: number): Promise<{ rows: ExportRow[]; hasMore: boolean }> {
+export async function getExportPage(
+  offset: number,
+  formType: string
+): Promise<{ rows: ExportRow[]; hasMore: boolean }> {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not signed in.");
   const userId = Number(session.user.id);
@@ -218,6 +224,7 @@ export async function getExportPage(offset: number): Promise<{ rows: ExportRow[]
     })
     .from(intakeRecords)
     .innerJoin(users, eq(intakeRecords.ownerId, users.id))
+    .where(eq(intakeRecords.formType, formType))
     .orderBy(asc(intakeRecords.id))
     .limit(EXPORT_PAGE_SIZE + 1)
     .offset(offset);

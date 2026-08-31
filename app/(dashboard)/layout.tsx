@@ -63,8 +63,11 @@ export default async function DashboardLayout({
         <Link href="/leads" style={{ color: "var(--text-secondary)" }}>
           Lead Feed
         </Link>
+        <Link href="/intake/new" style={{ color: "var(--text-secondary)" }}>
+          New Intake
+        </Link>
         <Link href="/intake" style={{ color: "var(--text-secondary)" }}>
-          Call Intake
+          Intake Records
         </Link>
         <Link href="/leaderboard" style={{ color: "var(--text-secondary)" }}>
           Leaderboard
