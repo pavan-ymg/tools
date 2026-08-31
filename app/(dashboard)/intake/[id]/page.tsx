@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { eq, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
@@ -60,7 +61,10 @@ export default async function IntakeDetailPage({ params }: { params: Promise<{ i
   return (
     <main style={{ padding: 32, maxWidth: 720 }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600 }}>{answers.fullName || "(no name)"}</h1>
+        <Link href={`/intake?form=${record.formType}`} style={{ fontSize: 13, color: "var(--accent)" }}>
+          ← Back to records
+        </Link>
+        <h1 style={{ fontSize: 20, fontWeight: 600, marginTop: 4 }}>{answers.fullName || "(no name)"}</h1>
         <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
           Owner: {owner?.name} · {record.phone} · {record.email}
         </p>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
@@ -46,6 +47,11 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
 
   return (
     <main style={{ padding: 32, maxWidth: 420 }}>
+      <div style={{ marginBottom: 4 }}>
+        <Link href="/admin/users" style={{ fontSize: 13, color: "var(--accent)" }}>
+          ← Back to Users
+        </Link>
+      </div>
       <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>{targetUser.name}</h1>
       <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>{targetUser.email}</p>
 

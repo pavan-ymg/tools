@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { listAssignableRoles, listManagerCandidates } from "../actions";
@@ -19,6 +20,11 @@ export default async function InviteUserPage() {
 
   return (
     <main style={{ padding: 32 }}>
+      <div style={{ marginBottom: 4 }}>
+        <Link href="/admin/users" style={{ fontSize: 13, color: "var(--accent)" }}>
+          ← Back to Users
+        </Link>
+      </div>
       <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 24 }}>Invite a user</h1>
       <InviteUserForm roles={roles} managers={managers} />
     </main>

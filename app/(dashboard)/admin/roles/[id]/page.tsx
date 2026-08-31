@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
@@ -35,6 +36,11 @@ export default async function EditRolePage({ params }: { params: Promise<{ id: s
   if (role.isSystem) {
     return (
       <main style={{ padding: 32 }}>
+        <div style={{ marginBottom: 4 }}>
+          <Link href="/admin/roles" style={{ fontSize: 13, color: "var(--accent)" }}>
+            ← Back to Roles
+          </Link>
+        </div>
         <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>{role.name}</h1>
         <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
           This is a system role — it bypasses every permission check in the app and can&apos;t be edited here.
@@ -53,6 +59,11 @@ export default async function EditRolePage({ params }: { params: Promise<{ id: s
 
   return (
     <main style={{ padding: 32, maxWidth: 720 }}>
+      <div style={{ marginBottom: 4 }}>
+        <Link href="/admin/roles" style={{ fontSize: 13, color: "var(--accent)" }}>
+          ← Back to Roles
+        </Link>
+      </div>
       <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>{role.name}</h1>
       <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
         Choose how much of the company&apos;s data this role can act on, for each capability.

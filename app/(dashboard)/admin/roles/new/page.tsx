@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -24,6 +25,11 @@ export default async function NewRolePage() {
 
   return (
     <main style={{ padding: 32 }}>
+      <div style={{ marginBottom: 4 }}>
+        <Link href="/admin/roles" style={{ fontSize: 13, color: "var(--accent)" }}>
+          ← Back to Roles
+        </Link>
+      </div>
       <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 24 }}>New role</h1>
       <NewRoleForm cloneableRoles={cloneableRoles} />
     </main>
