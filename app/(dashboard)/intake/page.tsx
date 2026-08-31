@@ -3,7 +3,7 @@ import { inArray, eq, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { intakeRecords, users } from "@/db/schema";
-import { getScope, subordinateIds } from "@/lib/permissions";
+import { getScope, subordinateIds, can } from "@/lib/permissions";
 import type { BeverlyLawAnswers } from "@/lib/forms/beverly-law";
 
 const STAGE_LABELS: Record<string, string> = {
@@ -61,19 +61,36 @@ export default async function IntakeListPage() {
     <main style={{ padding: 32 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Call Intake</h1>
-        <Link
-          href="/intake/new"
-          style={{
-            background: "var(--accent)",
-            color: "white",
-            padding: "8px 16px",
-            borderRadius: 6,
-            fontSize: 13,
-            textDecoration: "none",
-          }}
-        >
-          + New intake
-        </Link>
+        <div style={{ display: "flex", gap: 12 }}>
+          {(await can(userId, "intake.export")) && (
+            <Link
+              href="/intake/export"
+              style={{
+                border: "1px solid var(--glass-border)",
+                color: "var(--text-secondary)",
+                padding: "8px 16px",
+                borderRadius: 6,
+                fontSize: 13,
+                textDecoration: "none",
+              }}
+            >
+              Export
+            </Link>
+          )}
+          <Link
+            href="/intake/new"
+            style={{
+              background: "var(--accent)",
+              color: "white",
+              padding: "8px 16px",
+              borderRadius: 6,
+              fontSize: 13,
+              textDecoration: "none",
+            }}
+          >
+            + New intake
+          </Link>
+        </div>
       </div>
 
       <div style={{ overflowX: "auto", border: "1px solid var(--glass-border)", borderRadius: 8 }}>

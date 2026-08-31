@@ -1,10 +1,10 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { intakeRecords } from "@/db/schema";
+import { intakeRecords, users } from "@/db/schema";
 import { can } from "@/lib/permissions";
 import { logIntakeEvent } from "@/lib/intake-events";
 import { beverlyLawSchema, BEVERLY_LAW_SECTIONS, type BeverlyLawAnswers } from "@/lib/forms/beverly-law";
@@ -179,4 +179,75 @@ export async function tlReviewAction(
   await logIntakeEvent(id, userId, "tl_reviewed", { scored, comment });
 
   redirect(`/intake/${id}`);
+}
+
+const EXPORT_PAGE_SIZE = 200;
+
+export type ExportRow = Record<string, string>;
+
+/**
+ * One page of flattened rows for CSV export. Paginated + assembled
+ * client-side on purpose (docs/tools/PLAN.md — Vercel Hobby's ~10s
+ * function ceiling): this never builds the whole file in one function
+ * call, so it scales regardless of how many records exist.
+ *
+ * Flattens the Beverly Law answer shape into real columns rather than
+ * one JSON blob column — this is the only form type today, so that's
+ * the pragmatic choice; a second form type would need this extended
+ * (the standing "developer builds each form" decision applies here
+ * too, not just to the intake form itself).
+ */
+export async function getExportPage(offset: number): Promise<{ rows: ExportRow[]; hasMore: boolean }> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not signed in.");
+  const userId = Number(session.user.id);
+  if (!(await can(userId, "intake.export"))) throw new Error("Not permitted.");
+
+  const page = await db
+    .select({
+      id: intakeRecords.id,
+      stage: intakeRecords.stage,
+      rejectionReason: intakeRecords.rejectionReason,
+      phone: intakeRecords.phone,
+      email: intakeRecords.email,
+      answers: intakeRecords.answers,
+      scoredByTl: intakeRecords.scoredByTl,
+      tlComment: intakeRecords.tlComment,
+      createdAt: intakeRecords.createdAt,
+      ownerName: users.name,
+    })
+    .from(intakeRecords)
+    .innerJoin(users, eq(intakeRecords.ownerId, users.id))
+    .orderBy(asc(intakeRecords.id))
+    .limit(EXPORT_PAGE_SIZE + 1)
+    .offset(offset);
+
+  const hasMore = page.length > EXPORT_PAGE_SIZE;
+  const pageRows = hasMore ? page.slice(0, EXPORT_PAGE_SIZE) : page;
+
+  const rows: ExportRow[] = pageRows.map((r) => {
+    const answers = r.answers as BeverlyLawAnswers;
+    const flatAnswers: ExportRow = {};
+    for (const section of BEVERLY_LAW_SECTIONS) {
+      for (const field of section.fields) {
+        const value = answers[field.name];
+        flatAnswers[field.label] = typeof value === "boolean" ? (value ? "Yes" : "No") : String(value ?? "");
+      }
+    }
+
+    return {
+      ID: String(r.id),
+      Stage: r.stage,
+      "Rejection reason": r.rejectionReason ?? "",
+      Phone: r.phone,
+      Email: r.email,
+      Owner: r.ownerName,
+      "Scored by TL": r.scoredByTl ? "Yes" : "No",
+      "TL comment": r.tlComment ?? "",
+      Created: r.createdAt.toISOString(),
+      ...flatAnswers,
+    };
+  });
+
+  return { rows, hasMore };
 }
