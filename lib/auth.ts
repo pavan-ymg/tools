@@ -5,6 +5,18 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, userRoles, roles } from "@/db/schema";
 
+// §3.6.3: "exponential backoff after ~5 failures... not a permanent
+// lock" — deliberately not a hard lockout, since that would let anyone
+// lock a colleague out by guessing their password wrong on purpose.
+const FAILED_LOGIN_THRESHOLD = 5;
+const BASE_LOCKOUT_SECONDS = 30;
+const MAX_LOCKOUT_SECONDS = 15 * 60;
+
+function computeLockoutSeconds(failedLoginCount: number): number {
+  const exponent = failedLoginCount - FAILED_LOGIN_THRESHOLD;
+  return Math.min(MAX_LOCKOUT_SECONDS, BASE_LOCKOUT_SECONDS * 2 ** exponent);
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: "jwt",
@@ -46,8 +58,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // reveal which one it was (§3.6.2).
         if (!user || !user.isActive || !user.passwordHash) return null;
 
+        // Locked out from previous failures — deny before even touching
+        // bcrypt, and with the exact same generic failure as any other
+        // case, so a lockout can't be distinguished from a wrong password.
+        if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) return null;
+
         const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
+
+        if (!valid) {
+          const failedLoginCount = user.failedLoginCount + 1;
+          const lockedUntil =
+            failedLoginCount >= FAILED_LOGIN_THRESHOLD
+              ? new Date(Date.now() + computeLockoutSeconds(failedLoginCount) * 1000)
+              : null;
+          await db.update(users).set({ failedLoginCount, lockedUntil }).where(eq(users.id, user.id));
+          return null;
+        }
+
+        if (user.failedLoginCount > 0 || user.lockedUntil) {
+          await db.update(users).set({ failedLoginCount: 0, lockedUntil: null }).where(eq(users.id, user.id));
+        }
 
         const grantedRoles = await db
           .select({ slug: roles.slug })

@@ -43,6 +43,13 @@
       "when": 1788184909142,
       "tag": "0005_quiet_joshua_kane",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788191041484,
+      "tag": "0006_milky_hydra",
+      "breakpoints": true
     }
   ]
 }

@@ -47,6 +47,12 @@ export const users = pgTable("users", {
   sessionVersion: integer("session_version").notNull().default(0),
   // Reserved for future MFA (§3.6.3) — not used in v1.
   mfaSecret: text("mfa_secret"),
+  // Exponential backoff after repeated bad passwords (§3.6.3: "not a
+  // permanent lock"). failedLoginCount resets to 0 on any successful
+  // login; lockedUntil self-expires rather than needing an admin to
+  // clear it — see authorize() in lib/auth.ts.
+  failedLoginCount: integer("failed_login_count").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
