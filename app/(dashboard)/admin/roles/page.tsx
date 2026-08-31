@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { roles, rolePermissions, userRoles } from "@/db/schema";
@@ -17,7 +18,11 @@ export default async function RolesListPage() {
     );
   }
 
-  const allRoles = await db.select().from(roles).orderBy(roles.name);
+  // System roles (super_admin) never show here — it's not editable
+  // through this screen anyway (bypasses every check in code, seeded
+  // once at bootstrap), so listing it just invites confusion about
+  // whether it's configurable. §5.14.
+  const allRoles = await db.select().from(roles).where(eq(roles.isSystem, false)).orderBy(roles.name);
   const allGrants = await db.select().from(rolePermissions);
   const allAssignments = await db.select().from(userRoles);
 
@@ -52,22 +57,14 @@ export default async function RolesListPage() {
           <tbody>
             {allRoles.map((r) => (
               <tr key={r.id}>
-                <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>
-                  {r.name} {r.isSystem && <span style={{ color: "var(--text-secondary)" }}>(system)</span>}
-                </td>
+                <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{r.name}</td>
                 <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{userCountByRole.get(r.id) ?? 0}</td>
-                <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>
-                  {r.isSystem ? "All (bypasses checks)" : grantCountByRole.get(r.id) ?? 0}
-                </td>
+                <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{grantCountByRole.get(r.id) ?? 0}</td>
                 <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)", display: "flex", gap: 12 }}>
-                  {!r.isSystem && (
-                    <>
-                      <Link href={`/admin/roles/${r.id}`} style={{ color: "var(--accent)" }}>
-                        Edit
-                      </Link>
-                      <DeleteRoleButton roleId={r.id} />
-                    </>
-                  )}
+                  <Link href={`/admin/roles/${r.id}`} style={{ color: "var(--accent)" }}>
+                    Edit
+                  </Link>
+                  <DeleteRoleButton roleId={r.id} />
                 </td>
               </tr>
             ))}
