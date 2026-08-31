@@ -58,6 +58,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
         {!targetIsSuperAdmin && (
           <Link
             href={`/admin/users/${id}/permissions`}
+            className="cta-secondary"
             style={{
               fontSize: 13,
               fontWeight: 500,

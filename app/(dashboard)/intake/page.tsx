@@ -52,6 +52,7 @@ export default async function IntakeListPage({
           <h1 style={{ fontSize: 20, fontWeight: 600 }}>Intake Records</h1>
           <Link
             href="/intake/new"
+            className="cta-secondary"
             style={{
               fontSize: 13,
               fontWeight: 500,
@@ -151,6 +152,7 @@ export default async function IntakeListPage({
           {(await can(userId, "intake.export")) && (
             <Link
               href="/intake/export"
+              className="cta-secondary"
               style={{
                 border: "1px solid var(--glass-border)",
                 color: "var(--text-secondary)",
@@ -166,6 +168,7 @@ export default async function IntakeListPage({
           {currentForm && (
             <Link
               href={currentForm.href}
+              className="cta-primary"
               style={{
                 background: "var(--accent)",
                 color: "var(--accent-text)",

@@ -87,21 +87,20 @@ export default async function DashboardLayout({
           dueCount={dueCount ?? 0}
         />
 
-        <form action={signOutAction} style={{ marginTop: "auto", paddingTop: 20 }}>
+        <form
+          action={signOutAction}
+          style={{ marginTop: "auto", paddingTop: 12, borderTop: "1px solid var(--glass-border)" }}
+        >
           <button
             type="submit"
-            className="chip"
+            className="nav-link danger"
             style={{
-              background: "transparent",
-              border: "1px solid var(--glass-border)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: "pointer",
-              padding: "8px 10px",
-              borderRadius: 6,
+              background: "none",
+              border: "none",
               width: "100%",
               textAlign: "left",
+              cursor: "pointer",
+              fontFamily: "inherit",
             }}
           >
             Sign out

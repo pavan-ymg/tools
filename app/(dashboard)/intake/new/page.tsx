@@ -8,6 +8,7 @@ export default function NewIntakePickerPage() {
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>New Intake</h1>
         <Link
           href="/intake"
+          className="cta-secondary"
           style={{
             fontSize: 13,
             fontWeight: 500,

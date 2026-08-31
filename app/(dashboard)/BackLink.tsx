@@ -4,6 +4,7 @@ export default function BackLink({ href, label }: { href: string; label: string 
   return (
     <Link
       href={href}
+      className="back-link"
       style={{
         display: "inline-flex",
         alignItems: "center",

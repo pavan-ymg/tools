@@ -49,6 +49,45 @@ select option {
   color: var(--text-primary);
 }
 
+/* Every button in the app gets the same hover/press feedback for free —
+   covers all submit buttons (Save, Update stage, Filter, Export CSV,
+   force-reset, delete, deactivate, sign out…) without touching each one. */
+button {
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+button:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* Accent-filled CTA links (e.g. "+ New intake", "+ Invite user") —
+   the equivalent of the button rule above, for <Link>-rendered CTAs. */
+.cta-primary {
+  transition: background 0.15s ease;
+}
+.cta-primary:hover {
+  background: var(--accent-hover) !important;
+}
+
+/* Bordered/outlined CTA links (e.g. "Manage users →", "Export"). */
+.cta-secondary {
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.cta-secondary:hover {
+  background: rgba(216, 178, 107, 0.1) !important;
+  border-color: var(--accent) !important;
+}
+
+.back-link {
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.back-link:hover {
+  background: rgba(216, 178, 107, 0.14) !important;
+  border-color: var(--accent) !important;
+}
+
 a {
   color: var(--accent);
 }
@@ -77,6 +116,10 @@ a {
   background: rgba(216, 178, 107, 0.16);
   color: var(--accent);
   font-weight: 600;
+}
+.nav-link.danger:hover {
+  background: rgba(224, 101, 74, 0.12);
+  color: var(--danger);
 }
 
 .card-link {

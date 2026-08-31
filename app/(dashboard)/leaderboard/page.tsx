@@ -79,6 +79,7 @@ export default async function LeaderboardPage({
           <Link
             key={w.key}
             href={`/leaderboard?window=${w.key}`}
+            className="chip"
             style={{
               fontSize: 13,
               padding: "6px 12px",

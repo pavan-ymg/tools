@@ -169,6 +169,7 @@ export default async function DashboardHomePage() {
             <h2 style={{ fontSize: 15, fontWeight: 600 }}>Recent admin activity</h2>
             <Link
               href="/admin/audit"
+              className="cta-secondary"
               style={{
                 fontSize: 13,
                 fontWeight: 500,
@@ -211,6 +212,7 @@ export default async function DashboardHomePage() {
       {canManageUsers && !isSuperAdminUser && (
         <Link
           href="/admin/users"
+          className="cta-secondary"
           style={{
             display: "inline-block",
             fontSize: 13,
