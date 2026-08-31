@@ -54,12 +54,17 @@ export default async function DashboardLayout({
       <nav
         style={{
           display: "flex",
+          alignItems: "center",
           gap: 20,
-          padding: "12px 32px",
+          padding: "10px 32px",
           borderBottom: "1px solid var(--glass-border)",
           fontSize: 13,
         }}
       >
+        <Link href="/" style={{ display: "flex", alignItems: "center" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/ymg-legal-logo.svg" alt="YMG Legal" style={{ height: 28, width: "auto" }} />
+        </Link>
         <Link href="/leads" style={{ color: "var(--text-secondary)" }}>
           Lead Feed
         </Link>
