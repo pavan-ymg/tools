@@ -6,6 +6,7 @@ import { can } from "@/lib/permissions";
 import { syncLeads } from "@/lib/lead-sync";
 import { maskPhone, maskEmail } from "@/lib/mask";
 import LeadsTable from "./LeadsTable";
+import RefreshButton from "./RefreshButton";
 
 const PAGE_SIZE = 50;
 
@@ -73,9 +74,12 @@ export default async function LeadsPage({
         }}
       >
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Lead Feed</h1>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-          {session!.user.email} — {session!.user.roles?.join(", ")}
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            {session!.user.email} — {session!.user.roles?.join(", ")}
+          </p>
+          <RefreshButton />
+        </div>
       </div>
 
       {syncError && (

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { auth, signOut } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { can } from "@/lib/permissions";
@@ -38,8 +38,7 @@ export default async function DashboardLayout({
     .limit(1);
 
   if (!current || !current.isActive || current.sessionVersion !== session.user.sessionVersion) {
-    await signOut({ redirectTo: "/login" });
-    return null;
+    redirect("/force-logout");
   }
 
   if (current.mustChangePassword) {
@@ -47,6 +46,7 @@ export default async function DashboardLayout({
   }
 
   const canManageUsers = await can(current.id, "users.manage");
+  const canManageRoles = await can(current.id, "roles.manage");
 
   return (
     <>
@@ -71,6 +71,11 @@ export default async function DashboardLayout({
         {canManageUsers && (
           <Link href="/admin/users" style={{ color: "var(--text-secondary)" }}>
             Users
+          </Link>
+        )}
+        {canManageRoles && (
+          <Link href="/admin/roles" style={{ color: "var(--text-secondary)" }}>
+            Roles
           </Link>
         )}
       </nav>
