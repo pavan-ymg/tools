@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, roles, userRoles } from "@/db/schema";
 import { can } from "@/lib/permissions";
+import UserRowActions from "./UserRowActions";
 
 export default async function UsersListPage() {
   const session = await auth();
@@ -70,9 +71,12 @@ export default async function UsersListPage() {
                     {(rolesByUserId.get(u.id) ?? []).join(", ") || "—"}
                   </td>
                   <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>
-                    <Link href={`/admin/users/${u.id}`} style={{ color: "var(--accent)" }}>
-                      Edit
-                    </Link>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                      <Link href={`/admin/users/${u.id}`} style={{ color: "var(--accent)" }}>
+                        Edit
+                      </Link>
+                      <UserRowActions userId={u.id} isActive={u.isActive} />
+                    </div>
                   </td>
                 </tr>
               );

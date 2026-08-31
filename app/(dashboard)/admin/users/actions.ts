@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, roles, userRoles } from "@/db/schema";
@@ -17,6 +17,16 @@ async function requireUsersManage(): Promise<number> {
   const userId = Number(session.user.id);
   if (!(await can(userId, "users.manage"))) throw new Error("Not permitted.");
   return userId;
+}
+
+// Server-side half of the same rule as listAssignableRoles() below — the
+// UI hides system roles from the checkboxes, but that alone doesn't stop
+// a crafted request from submitting roleId=<super_admin> directly. Both
+// invite and update filter every submitted roleId through this before
+// it ever reaches userRoles.
+async function assignableRoleIds(): Promise<Set<number>> {
+  const rows = await db.select({ id: roles.id }).from(roles).where(eq(roles.isSystem, false));
+  return new Set(rows.map((r) => r.id));
 }
 
 async function baseUrl(): Promise<string> {
@@ -42,7 +52,9 @@ export async function inviteUserAction(
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const managerIdRaw = formData.get("managerId") as string;
   const managerId = managerIdRaw ? Number(managerIdRaw) : null;
-  const roleIds = formData.getAll("roleIds").map(Number);
+  const submittedRoleIds = formData.getAll("roleIds").map(Number);
+  const allowed = await assignableRoleIds();
+  const roleIds = submittedRoleIds.filter((roleId) => allowed.has(roleId));
 
   if (!name || !email) return { error: "Name and email are required." };
   if (roleIds.length === 0) return { error: "Select at least one role." };
@@ -80,11 +92,18 @@ export async function updateUserAction(id: number, formData: FormData): Promise<
   const managerIdRaw = formData.get("managerId") as string;
   const managerId = managerIdRaw ? Number(managerIdRaw) : null;
   const isActive = formData.get("isActive") === "on";
-  const roleIds = formData.getAll("roleIds").map(Number);
+  const submittedRoleIds = formData.getAll("roleIds").map(Number);
+  const allowed = await assignableRoleIds();
+  const roleIds = submittedRoleIds.filter((roleId) => allowed.has(roleId));
 
   await db.update(users).set({ managerId, isActive, updatedAt: new Date() }).where(eq(users.id, id));
 
-  await db.delete(userRoles).where(eq(userRoles.userId, id));
+  // Only replace non-system role rows — a system role (super_admin)
+  // isn't shown as a checkbox here at all (listAssignableRoles), so a
+  // blind delete-everything-then-reinsert would silently strip it from
+  // whoever holds it the next time their profile is saved through this
+  // form. Scoping the delete to `allowed` leaves any such row untouched.
+  await db.delete(userRoles).where(and(eq(userRoles.userId, id), inArray(userRoles.roleId, [...allowed])));
   if (roleIds.length > 0) {
     await db.insert(userRoles).values(roleIds.map((roleId) => ({ userId: id, roleId })));
   }
@@ -107,8 +126,13 @@ export async function forceResetAction(id: number): Promise<{ resetUrl: string }
   return { resetUrl: `${await baseUrl()}/reset-password/${token}` };
 }
 
+// Excludes system roles (super_admin) — that role is never assignable
+// through either the invite or edit form. It's seeded once at bootstrap
+// and reserved deliberately (§3.5): if it were pickable here, anyone
+// with users.manage could hand it to themselves or anyone else, which
+// defeats the whole point of keeping it a rare, hardcoded bypass.
 export async function listAssignableRoles() {
-  return db.select().from(roles).orderBy(roles.name);
+  return db.select().from(roles).where(eq(roles.isSystem, false)).orderBy(roles.name);
 }
 
 export async function listManagerCandidates(excludeUserId?: number) {
@@ -119,4 +143,36 @@ export async function listManagerCandidates(excludeUserId?: number) {
 export async function getUserRoleIds(userId: number): Promise<number[]> {
   const rows = await db.select({ roleId: userRoles.roleId }).from(userRoles).where(eq(userRoles.userId, userId));
   return rows.map((r) => r.roleId);
+}
+
+export async function toggleUserActiveAction(id: number, nextActive: boolean): Promise<void> {
+  await requireUsersManage();
+  await db.update(users).set({ isActive: nextActive, updatedAt: new Date() }).where(eq(users.id, id));
+}
+
+/**
+ * Hard delete — deliberately separate from deactivate, which stays the
+ * default offboarding path since it preserves intake records/audit
+ * history that reference the user. This only succeeds when nothing
+ * references them: intake_records.ownerId and .tlReviewedBy have no
+ * onDelete rule (Postgres default NO ACTION), so the delete itself
+ * fails with a foreign-key violation if they've ever owned or reviewed
+ * a record — caught here and turned into a clear message rather than
+ * a raw DB error.
+ */
+export async function deleteUserAction(id: number): Promise<{ error?: string }> {
+  const currentUserId = await requireUsersManage();
+  if (id === currentUserId) return { error: "You can't delete your own account." };
+
+  const [target] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  if (!target) return { error: "User not found." };
+
+  try {
+    await db.delete(users).where(eq(users.id, id));
+    return {};
+  } catch {
+    return {
+      error: "Can't delete — this user owns or has reviewed intake records. Deactivate instead, or reassign those records first.",
+    };
+  }
 }

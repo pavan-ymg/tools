@@ -2,9 +2,9 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, roles } from "@/db/schema";
+import { users } from "@/db/schema";
 import { can } from "@/lib/permissions";
-import { updateUserAction, listManagerCandidates, getUserRoleIds } from "../actions";
+import { updateUserAction, listManagerCandidates, listAssignableRoles, getUserRoleIds } from "../actions";
 import ForceResetButton from "./ForceResetButton";
 
 const inputStyle: React.CSSProperties = {
@@ -37,7 +37,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   if (!targetUser) notFound();
 
   const [allRoles, managers, currentRoleIds] = await Promise.all([
-    db.select().from(roles).orderBy(roles.name),
+    listAssignableRoles(),
     listManagerCandidates(id),
     getUserRoleIds(id),
   ]);
