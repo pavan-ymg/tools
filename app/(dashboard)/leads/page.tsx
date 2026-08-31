@@ -1,4 +1,5 @@
-import { desc, or, ilike } from "drizzle-orm";
+import Link from "next/link";
+import { desc, or, ilike, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { leadIndex } from "@/db/schema";
@@ -7,12 +8,24 @@ import { syncLeads } from "@/lib/lead-sync";
 import LeadsTable from "./LeadsTable";
 import RefreshButton from "./RefreshButton";
 
-const PAGE_SIZE = 50;
+// Nobody sees more than the HARD_CAP most recent leads, full stop
+// (Pavan, 2026-09-01: "no one should be able to see more than 100
+// contacts") — page-size options only let you choose how those capped
+// 100 are chunked, never a way to see further back than that.
+const HARD_CAP = 100;
+const PAGE_SIZES = [10, 20, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZES)[number];
+const DEFAULT_PAGE_SIZE: PageSize = 20;
+
+function parsePageSize(raw: string | undefined): PageSize {
+  const n = Number(raw);
+  return (PAGE_SIZES as readonly number[]).includes(n) ? (n as PageSize) : DEFAULT_PAGE_SIZE;
+}
 
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; q?: string }>;
+  searchParams: Promise<{ page?: string; q?: string; pageSize?: string }>;
 }) {
   const session = await auth();
   const userId = Number(session!.user.id);
@@ -38,8 +51,8 @@ export default async function LeadsPage({
     syncError = err instanceof Error ? err.message : "Sync failed.";
   }
 
-  const { page: pageParam, q } = await searchParams;
-  const page = Math.max(1, Number(pageParam) || 1);
+  const { page: pageParam, q, pageSize: pageSizeParam } = await searchParams;
+  const pageSize = parsePageSize(pageSizeParam);
   const query = q?.trim();
 
   const searchFilter = query
@@ -51,13 +64,27 @@ export default async function LeadsPage({
       )
     : undefined;
 
+  let countQuery = db.select({ count: sql<number>`count(*)::int` }).from(leadIndex).$dynamic();
+  if (searchFilter) countQuery = countQuery.where(searchFilter);
+  const [{ count: rawCount }] = await countQuery;
+  const totalCount = Math.min(rawCount, HARD_CAP);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const page = Math.min(Math.max(1, Number(pageParam) || 1), totalPages);
+
+  const pageUrl = (targetPage: number) =>
+    `/leads?page=${targetPage}&pageSize=${pageSize}${query ? `&q=${encodeURIComponent(query)}` : ""}`;
+
   let leadsQuery = db.select().from(leadIndex).$dynamic();
   if (searchFilter) leadsQuery = leadsQuery.where(searchFilter);
-
+  // ORDER BY + LIMIT/OFFSET bounded by totalPages (itself derived from
+  // the capped totalCount above) means offset+limit can never reach
+  // past row 100 of the most-recent-first ordering — the cap holds
+  // without a separate subquery.
   const rows = await leadsQuery
     .orderBy(desc(leadIndex.leadCreatedAt))
-    .limit(PAGE_SIZE)
-    .offset((page - 1) * PAGE_SIZE);
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
 
   const leadRows = rows.map((row) => ({
     id: row.id,
@@ -95,6 +122,7 @@ export default async function LeadsPage({
       )}
 
       <form method="GET" style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <input type="hidden" name="pageSize" value={pageSize} />
         <input
           name="q"
           type="text"
@@ -126,7 +154,7 @@ export default async function LeadsPage({
         </button>
         {query && (
           <a
-            href="/leads"
+            href={`/leads?pageSize=${pageSize}`}
             style={{ display: "flex", alignItems: "center", color: "var(--text-secondary)", fontSize: 13 }}
           >
             Clear
@@ -134,20 +162,69 @@ export default async function LeadsPage({
         )}
       </form>
 
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+          <span style={{ color: "var(--text-secondary)" }}>Show:</span>
+          {PAGE_SIZES.map((size) => (
+            <Link
+              key={size}
+              href={`/leads?pageSize=${size}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 6,
+                border: "1px solid var(--glass-border)",
+                background: pageSize === size ? "var(--accent)" : "transparent",
+                color: pageSize === size ? "white" : "var(--text-secondary)",
+                textDecoration: "none",
+              }}
+            >
+              {size}
+            </Link>
+          ))}
+        </div>
+        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+          {totalCount === 0 ? "No leads" : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalCount)} of ${totalCount}`}
+          {rawCount > HARD_CAP ? ` (most recent ${HARD_CAP})` : ""}
+        </span>
+      </div>
+
       <LeadsTable rows={leadRows} />
 
-      <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-        {page > 1 && (
-          <a href={`/leads?page=${page - 1}${query ? `&q=${encodeURIComponent(query)}` : ""}`} style={{ color: "var(--accent)", fontSize: 13 }}>
-            ← Newer
-          </a>
-        )}
-        {rows.length === PAGE_SIZE && (
-          <a href={`/leads?page=${page + 1}${query ? `&q=${encodeURIComponent(query)}` : ""}`} style={{ color: "var(--accent)", fontSize: 13 }}>
-            Older →
-          </a>
-        )}
-      </div>
+      {totalPages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}>
+          {page > 1 ? (
+            <Link href={pageUrl(1)} style={{ color: "var(--accent)", fontSize: 13 }}>
+              « First
+            </Link>
+          ) : (
+            <span style={{ color: "var(--text-secondary)", fontSize: 13, opacity: 0.4 }}>« First</span>
+          )}
+          {page > 1 ? (
+            <Link href={pageUrl(page - 1)} style={{ color: "var(--accent)", fontSize: 13 }}>
+              ← Prev
+            </Link>
+          ) : (
+            <span style={{ color: "var(--text-secondary)", fontSize: 13, opacity: 0.4 }}>← Prev</span>
+          )}
+          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            Page {page} of {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link href={pageUrl(page + 1)} style={{ color: "var(--accent)", fontSize: 13 }}>
+              Next →
+            </Link>
+          ) : (
+            <span style={{ color: "var(--text-secondary)", fontSize: 13, opacity: 0.4 }}>Next →</span>
+          )}
+          {page < totalPages ? (
+            <Link href={pageUrl(totalPages)} style={{ color: "var(--accent)", fontSize: 13 }}>
+              Last »
+            </Link>
+          ) : (
+            <span style={{ color: "var(--text-secondary)", fontSize: 13, opacity: 0.4 }}>Last »</span>
+          )}
+        </div>
+      )}
     </main>
   );
 }
