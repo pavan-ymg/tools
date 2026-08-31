@@ -6,7 +6,6 @@ import { can } from "@/lib/permissions";
 import { syncLeads } from "@/lib/lead-sync";
 import LeadsTable from "./LeadsTable";
 import RefreshButton from "./RefreshButton";
-import LeadsExportButton from "./LeadsExportButton";
 
 const PAGE_SIZE = 50;
 
@@ -72,12 +71,9 @@ export default async function LeadsPage({
       >
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Lead Feed</h1>
         <RefreshButton />
-        <div style={{ display: "flex", alignItems: "center", gap: 16, justifySelf: "end" }}>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-            {session!.user.email} — {session!.user.roles?.join(", ")}
-          </p>
-          <LeadsExportButton />
-        </div>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", justifySelf: "end" }}>
+          {session!.user.email} — {session!.user.roles?.join(", ")}
+        </p>
       </div>
 
       {syncError && (
