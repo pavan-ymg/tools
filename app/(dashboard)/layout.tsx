@@ -51,29 +51,46 @@ export default async function DashboardLayout({
   const canManageRoles = await can(current.id, "roles.manage");
   const dueCount = await getDueFollowUpCount(current.id);
 
+  const linkStyle: React.CSSProperties = {
+    color: "var(--text-secondary)",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "8px 10px",
+    borderRadius: 6,
+  };
+
   return (
-    <>
+    <div style={{ display: "flex", minHeight: "100vh" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+
       <nav
         style={{
+          width: 200,
+          flexShrink: 0,
           display: "flex",
-          alignItems: "center",
-          gap: 20,
-          padding: "10px 32px",
-          borderBottom: "1px solid var(--glass-border)",
+          flexDirection: "column",
+          gap: 2,
+          padding: "20px 14px",
+          borderLeft: "1px solid var(--glass-border)",
           fontSize: 13,
+          position: "sticky",
+          top: 0,
+          height: "100vh",
+          overflowY: "auto",
         }}
       >
-        <Link href="/" style={{ display: "flex", alignItems: "center" }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", marginBottom: 20 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/ymg-legal-logo.svg" alt="YMG Legal" style={{ height: 28, width: "auto" }} />
         </Link>
-        <Link href="/leads" style={{ color: "var(--text-secondary)" }}>
+        <Link href="/leads" style={linkStyle}>
           Lead Feed
         </Link>
-        <Link href="/intake/new" style={{ color: "var(--text-secondary)" }}>
+        <Link href="/intake/new" style={linkStyle}>
           New Intake
         </Link>
-        <Link href="/intake" style={{ color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+        <Link href="/intake" style={linkStyle}>
           Intake Records
           {!!dueCount && (
             <span
@@ -90,25 +107,26 @@ export default async function DashboardLayout({
             </span>
           )}
         </Link>
-        <Link href="/leaderboard" style={{ color: "var(--text-secondary)" }}>
+        <Link href="/leaderboard" style={linkStyle}>
           Leaderboard
         </Link>
         {canManageUsers && (
-          <Link href="/admin/users" style={{ color: "var(--text-secondary)" }}>
+          <Link href="/admin/users" style={linkStyle}>
             Users
           </Link>
         )}
         {canManageRoles && (
-          <Link href="/admin/roles" style={{ color: "var(--text-secondary)" }}>
+          <Link href="/admin/roles" style={linkStyle}>
             Roles
           </Link>
         )}
         {canManageRoles && (
-          <Link href="/admin/audit" style={{ color: "var(--text-secondary)" }}>
+          <Link href="/admin/audit" style={linkStyle}>
             Audit Log
           </Link>
         )}
-        <form action={signOutAction} style={{ marginLeft: "auto" }}>
+
+        <form action={signOutAction} style={{ marginTop: "auto", paddingTop: 20 }}>
           <button
             type="submit"
             style={{
@@ -117,14 +135,15 @@ export default async function DashboardLayout({
               color: "var(--text-secondary)",
               fontSize: 13,
               cursor: "pointer",
-              padding: 0,
+              padding: "8px 10px",
+              width: "100%",
+              textAlign: "left",
             }}
           >
             Sign out
           </button>
         </form>
       </nav>
-      {children}
-    </>
+    </div>
   );
 }
