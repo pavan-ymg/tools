@@ -11,6 +11,7 @@ import StageForm from "./StageForm";
 import TlReviewForm from "./TlReviewForm";
 import { updateIntakeAction, changeStageAction, tlReviewAction, setFollowUpAction } from "../actions";
 import BackLink from "@/app/(dashboard)/BackLink";
+import { formatDate, formatDateTime, toISTDateTimeLocalValue } from "@/lib/format-date";
 
 export default async function IntakeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: idParam } = await params;
@@ -58,10 +59,7 @@ export default async function IntakeDetailPage({ params }: { params: Promise<{ i
   const boundStage = changeStageAction.bind(null, id);
   const boundReview = tlReviewAction.bind(null, id);
   const boundFollowUp = setFollowUpAction.bind(null, id);
-  // datetime-local wants "YYYY-MM-DDTHH:mm", no timezone suffix. Server
-  // and viewer clocks can differ, same caveat as anywhere else this app
-  // shows a raw date — not worth a client component just for this field.
-  const followUpLocalValue = record.followUpAt ? record.followUpAt.toISOString().slice(0, 16) : "";
+  const followUpLocalValue = record.followUpAt ? toISTDateTimeLocalValue(record.followUpAt) : "";
 
   return (
     <main style={{ padding: 32, maxWidth: 720 }}>
@@ -75,7 +73,7 @@ export default async function IntakeDetailPage({ params }: { params: Promise<{ i
         {matchedLead ? (
           <p style={{ fontSize: 13, color: "var(--success)", marginTop: 8 }}>
             ✓ LP form received — matched lead from {matchedLead.domain} ({matchedLead.slug}), submitted{" "}
-            {matchedLead.leadCreatedAt.toLocaleDateString()}
+            {formatDate(matchedLead.leadCreatedAt)}
           </p>
         ) : (
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8 }}>
@@ -128,7 +126,7 @@ export default async function IntakeDetailPage({ params }: { params: Promise<{ i
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {events.map((e) => (
             <p key={e.id} style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-              {e.createdAt.toLocaleString()} — {e.userName} — {e.eventType} —{" "}
+              {formatDateTime(e.createdAt)} — {e.userName} — {e.eventType} —{" "}
               {JSON.stringify(e.detail)}
             </p>
           ))}

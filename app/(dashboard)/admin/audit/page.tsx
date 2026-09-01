@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { auditLog } from "@/db/schema";
 import { isSuperAdmin } from "../users/actions";
 import BackLink from "@/app/(dashboard)/BackLink";
+import { formatDateTime } from "@/lib/format-date";
 
 const ACTION_LABELS: Record<string, string> = {
   user_invited: "Invited user",
@@ -50,7 +51,7 @@ export default async function AuditLogPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "rgba(255,255,255,0.03)" }}>
-              {["When", "Who", "Action", "Target", "Detail"].map((h) => (
+              {["When (IST)", "Who", "Action", "Target", "Detail"].map((h) => (
                 <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 13, color: "var(--text-secondary)", borderBottom: "1px solid var(--glass-border)" }}>
                   {h}
                 </th>
@@ -61,7 +62,7 @@ export default async function AuditLogPage() {
             {entries.map((e) => (
               <tr key={e.id}>
                 <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)", whiteSpace: "nowrap" }}>
-                  {e.createdAt.toLocaleString()}
+                  {formatDateTime(e.createdAt)}
                 </td>
                 <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>{e.actorLabel}</td>
                 <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>

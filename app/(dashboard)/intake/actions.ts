@@ -8,6 +8,7 @@ import { intakeRecords, users } from "@/db/schema";
 import { can } from "@/lib/permissions";
 import { logIntakeEvent } from "@/lib/intake-events";
 import { beverlyLawSchema, BEVERLY_LAW_SECTIONS, type BeverlyLawAnswers } from "@/lib/forms/beverly-law";
+import { formatDateTime, fromISTDateTimeLocalValue } from "@/lib/format-date";
 
 const CHECKBOX_FIELDS = new Set(
   BEVERLY_LAW_SECTIONS.flatMap((s) => s.fields).filter((f) => f.type === "checkbox").map((f) => f.name)
@@ -144,7 +145,7 @@ export async function setFollowUpAction(id: number, formData: FormData): Promise
   const followUpAt = formData.get("followUpAt") as string;
   await db
     .update(intakeRecords)
-    .set({ followUpAt: followUpAt ? new Date(followUpAt) : null, updatedAt: new Date() })
+    .set({ followUpAt: followUpAt ? fromISTDateTimeLocalValue(followUpAt) : null, updatedAt: new Date() })
     .where(eq(intakeRecords.id, id));
 
   await logIntakeEvent(id, userId, "field_changed", { changedFields: ["followUpAt"] });
@@ -251,7 +252,7 @@ export async function getExportPage(
       Owner: r.ownerName,
       "Scored by TL": r.scoredByTl ? "Yes" : "No",
       "TL comment": r.tlComment ?? "",
-      Created: r.createdAt.toISOString(),
+      Created: formatDateTime(r.createdAt),
       ...flatAnswers,
     };
   });

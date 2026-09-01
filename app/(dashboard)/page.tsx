@@ -8,6 +8,7 @@ import { getLeaderboard } from "@/lib/leaderboard";
 import { getDueFollowUpCount } from "@/lib/intake-stats";
 import { isSuperAdmin } from "./admin/users/actions";
 import { FORM_REGISTRY } from "@/lib/forms/registry";
+import { formatDateTime } from "@/lib/format-date";
 
 const cardStyle: React.CSSProperties = {
   border: "1px solid var(--glass-border)",
@@ -202,7 +203,7 @@ export default async function DashboardHomePage() {
                   <span style={{ color: "var(--text-secondary)" }}>{e.actorLabel}</span>{" "}
                   {e.action.replace(/_/g, " ")} <span style={{ color: "var(--text-secondary)" }}>{e.targetLabel}</span>
                 </span>
-                <span style={{ color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{e.createdAt.toLocaleString()}</span>
+                <span style={{ color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{formatDateTime(e.createdAt)}</span>
               </div>
             ))}
           </div>

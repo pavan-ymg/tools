@@ -46,7 +46,10 @@ export default function ExportButton({ formType, fileSlug }: { formType: string;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `intake-${fileSlug}-${new Date().toISOString().slice(0, 10)}.csv`;
+      // en-CA gives YYYY-MM-DD directly — the one Intl locale that
+      // formats dates in that order without extra parsing.
+      const dateSuffix = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+      a.download = `intake-${fileSlug}-${dateSuffix}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

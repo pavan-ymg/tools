@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/lib/format-date";
+
 type Row = {
   id: number;
   name: string;
@@ -22,7 +24,7 @@ export default function LeadsTable({ rows }: { rows: Row[] }) {
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ background: "rgba(255,255,255,0.03)" }}>
-            {["Name", "Phone", "Email", "State", "LP Slug", "Time", "Website"].map((h) => (
+            {["Name", "Phone", "Email", "State", "LP Slug", "Time (IST)", "Website"].map((h) => (
               <th
                 key={h}
                 style={{
@@ -45,7 +47,7 @@ export default function LeadsTable({ rows }: { rows: Row[] }) {
               <td style={cellStyle}>{row.email}</td>
               <td style={cellStyle}>{row.state}</td>
               <td style={cellStyle}>{row.slug}</td>
-              <td style={cellStyle}>{new Date(row.leadCreatedAt).toLocaleString()}</td>
+              <td style={cellStyle}>{formatDateTime(new Date(row.leadCreatedAt))}</td>
               <td style={cellStyle}>{row.domain}</td>
             </tr>
           ))}

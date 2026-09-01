@@ -7,6 +7,7 @@ import { getScope, subordinateIds, can } from "@/lib/permissions";
 import { FORM_REGISTRY } from "@/lib/forms/registry";
 import type { BeverlyLawAnswers } from "@/lib/forms/beverly-law";
 import BackLink from "@/app/(dashboard)/BackLink";
+import { formatDate } from "@/lib/format-date";
 
 const STAGE_LABELS: Record<string, string> = {
   new: "New",
@@ -288,7 +289,7 @@ export default async function IntakeListPage({
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "rgba(255,255,255,0.03)" }}>
-              {["Name", "Phone", "Stage", "Owner", "Scored", "Follow-up", "Created"].map((h) => (
+              {["Name", "Phone", "Stage", "Owner", "Scored", "Follow-up (IST)", "Created (IST)"].map((h) => (
                 <th
                   key={h}
                   style={{ padding: "10px 14px", textAlign: "left", fontSize: 13, color: "var(--text-secondary)", borderBottom: "1px solid var(--glass-border)" }}
@@ -316,13 +317,13 @@ export default async function IntakeListPage({
                     {row.followUpAt
                       ? (
                         <span style={{ color: row.followUpAt <= new Date() ? "var(--danger)" : "var(--text-primary)" }}>
-                          {row.followUpAt.toLocaleDateString()}
+                          {formatDate(row.followUpAt)}
                         </span>
                       )
                       : "—"}
                   </td>
                   <td style={{ padding: "10px 14px", fontSize: 13, borderBottom: "1px solid var(--glass-border)" }}>
-                    {row.createdAt.toLocaleDateString()}
+                    {formatDate(row.createdAt)}
                   </td>
                 </tr>
               );
