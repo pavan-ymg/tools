@@ -1,9 +1,24 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { encode as defaultEncode } from "next-auth/jwt";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, userRoles, roles } from "@/db/schema";
+
+// Weekly auto-logout, fixed to Monday midnight — not a rolling N-hour/
+// N-day window (Pavan, 2026-09-01: "remove the auto logout everyday...
+// make it every week... auto logout at monday specifically"). Logging
+// in on ANY day only ever gets you to the NEXT Monday — a login on
+// Monday itself still gets a full week out, not an immediate expiry.
+function secondsUntilNextMonday(from: Date): number {
+  const target = new Date(from);
+  target.setHours(0, 0, 0, 0);
+  const day = target.getDay(); // 0 = Sun, 1 = Mon, ... 6 = Sat
+  const daysUntilNextMonday = ((1 - day + 7 - 1) % 7) + 1;
+  target.setDate(target.getDate() + daysUntilNextMonday);
+  return Math.floor((target.getTime() - from.getTime()) / 1000);
+}
 
 // §3.6.3: "exponential backoff after ~5 failures... not a permanent
 // lock" — deliberately not a hard lockout, since that would let anyone
@@ -20,7 +35,19 @@ function computeLockoutSeconds(failedLoginCount: number): number {
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: "jwt",
-    maxAge: 8 * 60 * 60, // 8 hours — matches HRMS today (§3.6.3)
+    // Upper bound only (worst case: logging in right after midnight
+    // Monday, so the real cutoff is nearly a full 7 days out) — the
+    // actual per-login expiry is computed in the custom encode() below.
+    maxAge: 8 * 24 * 60 * 60,
+    // Deliberately far beyond maxAge so NextAuth never performs a
+    // mid-session rolling refresh — that would re-encode with "the
+    // next Monday from right now" on every active day, letting an
+    // active user push their own cutoff past each Monday indefinitely.
+    // The Monday cutoff has to be fixed at login and never renewed.
+    updateAge: 30 * 24 * 60 * 60,
+  },
+  jwt: {
+    encode: async (params) => defaultEncode({ ...params, maxAge: secondsUntilNextMonday(new Date()) }),
   },
   cookies: {
     sessionToken: {
