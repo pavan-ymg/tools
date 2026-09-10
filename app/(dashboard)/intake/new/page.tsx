@@ -1,7 +1,20 @@
 import Link from "next/link";
+import { auth } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { FORM_REGISTRY } from "@/lib/forms/registry";
 
-export default function NewIntakePickerPage() {
+export default async function NewIntakePickerPage() {
+  const session = await auth();
+  const userId = Number(session!.user.id);
+
+  if (!(await can(userId, "intake.create"))) {
+    return (
+      <main style={{ padding: 32 }}>
+        <p style={{ color: "var(--text-secondary)" }}>You don&apos;t have permission to log a new intake call.</p>
+      </main>
+    );
+  }
+
   return (
     <main style={{ padding: 32, maxWidth: 640 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
