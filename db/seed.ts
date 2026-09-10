@@ -42,6 +42,32 @@ type StarterRole = {
 // admin UI once it exists (§3.5). Nothing here is hardcoded behaviour.
 const STARTER_ROLES: StarterRole[] = [
   { slug: "super_admin", name: "Super Admin", isSystem: true, grants: [] }, // bypasses checks in code
+  // A real, non-system role granted every permission at "all" scope —
+  // deliberately NOT the same thing as super_admin (Pavan, 2026-09-11:
+  // "add admin also with same access as the super admin later on we
+  // will differenciate"). Being isSystem:false means it goes through
+  // the normal role_permissions-driven check like any other role —
+  // auditable, editable, revocable via Admin -> Roles — where
+  // super_admin instead bypasses the check system entirely in code.
+  // Starts identical to super_admin on purpose; narrow it later by
+  // editing this role's grants in the Roles UI, not by touching
+  // super_admin.
+  {
+    slug: "admin",
+    name: "Admin",
+    isSystem: false,
+    grants: [
+      { key: "leads.view", scope: "all" },
+      { key: "intake.view", scope: "all" },
+      { key: "intake.create", scope: "all" },
+      { key: "intake.edit", scope: "all" },
+      { key: "intake.review", scope: "all" },
+      { key: "intake.export", scope: "all" },
+      { key: "leaderboard.view", scope: "all" },
+      { key: "roles.manage", scope: "all" },
+      { key: "users.manage", scope: "all" },
+    ],
+  },
   {
     slug: "manager",
     name: "Manager",
