@@ -1,7 +1,6 @@
-import { gte, inArray } from "drizzle-orm";
+import { gte, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { intakeRecords, intakeEvents, users } from "@/db/schema";
-import { findMatchingLead } from "@/lib/intake-match";
+import { intakeRecords, intakeEvents, leadIndex, users } from "@/db/schema";
 
 // Stored as a plain object, not hardcoded into the scoring logic below,
 // so Pavan can hand-tune these once there's real data without a
@@ -39,6 +38,44 @@ export type LeaderboardRow = {
   scoredByTl: number;
 };
 
+type LeadMatch = {
+  leadCreatedAt: Date;
+};
+
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, "");
+}
+
+async function findMatchingLeads(records: Array<{ phone: string; email: string }>): Promise<Map<string, LeadMatch>> {
+  const phones = [...new Set(records.map((r) => normalizePhone(r.phone)).filter(Boolean))];
+  const emails = [...new Set(records.map((r) => r.email.trim().toLowerCase()).filter(Boolean))];
+  if (phones.length === 0 && emails.length === 0) return new Map();
+
+  const conditions = [];
+  if (phones.length > 0) conditions.push(inArray(sql`regexp_replace(${leadIndex.phone}, '\D', '', 'g')`, phones));
+  if (emails.length > 0) conditions.push(inArray(sql`lower(${leadIndex.email})`, emails));
+
+  const rows = await db
+    .select({
+      phone: leadIndex.phone,
+      email: leadIndex.email,
+      leadCreatedAt: leadIndex.leadCreatedAt,
+    })
+    .from(leadIndex)
+    .where(or(...conditions));
+
+  const matches = new Map<string, LeadMatch>();
+  for (const row of rows) {
+    const phoneKey = normalizePhone(row.phone);
+    const emailKey = row.email.trim().toLowerCase();
+    const match = { leadCreatedAt: row.leadCreatedAt };
+    if (phoneKey && !matches.has(`phone:${phoneKey}`)) matches.set(`phone:${phoneKey}`, match);
+    if (emailKey && !matches.has(`email:${emailKey}`)) matches.set(`email:${emailKey}`, match);
+  }
+
+  return matches;
+}
+
 /**
  * Computed in application code rather than one giant SQL aggregate —
  * internal-tool data volume makes this simple and easy to adjust, and
@@ -58,7 +95,10 @@ export async function getLeaderboard(window: TimeWindow): Promise<LeaderboardRow
   if (records.length === 0) return [];
 
   const recordIds = records.map((r) => r.id);
-  const events = await db.select().from(intakeEvents).where(inArray(intakeEvents.intakeRecordId, recordIds));
+  const [events, leadMatches] = await Promise.all([
+    db.select().from(intakeEvents).where(inArray(intakeEvents.intakeRecordId, recordIds)),
+    findMatchingLeads(records),
+  ]);
   const eventsByRecord = new Map<number, typeof events>();
   for (const e of events) {
     const list = eventsByRecord.get(e.intakeRecordId) ?? [];
@@ -91,7 +131,9 @@ export async function getLeaderboard(window: TimeWindow): Promise<LeaderboardRow
     // One lookup, reused for both the LP-completed bonus and the speed
     // bonus below — these are two different signals from the same
     // match, not two separate checks.
-    const lpMatch = await findMatchingLead(record.phone, record.email);
+    const phoneKey = normalizePhone(record.phone);
+    const emailKey = record.email.trim().toLowerCase();
+    const lpMatch = (phoneKey ? leadMatches.get(`phone:${phoneKey}`) : null) ?? (emailKey ? leadMatches.get(`email:${emailKey}`) : null);
     if (lpMatch) points += SCORE_WEIGHTS.lpFormCompleted;
 
     const firstAttempt = recordEvents.find(

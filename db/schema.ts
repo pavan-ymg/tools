@@ -162,6 +162,7 @@ export const leadIndex = pgTable("lead_index", {
   // caught (see lib/intake-match.ts).
   index("lead_index_phone_idx").on(table.phone),
   index("lead_index_email_idx").on(table.email),
+  index("lead_index_created_idx").on(table.leadCreatedAt),
 ]);
 
 // Contact fields on the Lead Feed are masked by default, reveal-on-click
@@ -212,6 +213,9 @@ export const intakeRecords = pgTable("intake_records", {
   index("intake_records_stage_idx").on(table.stage),
   index("intake_records_phone_idx").on(table.phone),
   index("intake_records_email_idx").on(table.email),
+  index("intake_records_form_created_idx").on(table.formType, table.createdAt),
+  index("intake_records_follow_up_idx").on(table.followUpAt),
+  index("intake_records_created_idx").on(table.createdAt),
 ]);
 
 // Immutable audit trail (§6.5) — required, not optional, because

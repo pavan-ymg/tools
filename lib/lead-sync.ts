@@ -23,11 +23,12 @@ async function getSyncCursor(): Promise<Date> {
 export async function syncLeads(): Promise<{ fetched: number }> {
   const since = await getSyncCursor();
   const leads = await fetchLeadsSince(since);
+  if (leads.length === 0) return { fetched: 0 };
 
-  for (const lead of leads) {
-    await db
-      .insert(leadIndex)
-      .values({
+  await db
+    .insert(leadIndex)
+    .values(
+      leads.map((lead) => ({
         sourceId: lead.sourceId,
         name: lead.name,
         phone: lead.phone,
@@ -36,20 +37,21 @@ export async function syncLeads(): Promise<{ fetched: number }> {
         slug: lead.slug,
         state: lead.state,
         leadCreatedAt: new Date(lead.createdAt),
-      })
-      .onConflictDoUpdate({
-        target: leadIndex.sourceId,
-        set: {
-          name: lead.name,
-          phone: lead.phone,
-          email: lead.email,
-          domain: lead.domain,
-          slug: lead.slug,
-          state: lead.state,
-          syncedAt: new Date(),
-        },
-      });
-  }
+      }))
+    )
+    .onConflictDoUpdate({
+      target: leadIndex.sourceId,
+      set: {
+        name: sql`excluded.name`,
+        phone: sql`excluded.phone`,
+        email: sql`excluded.email`,
+        domain: sql`excluded.domain`,
+        slug: sql`excluded.slug`,
+        state: sql`excluded.state`,
+        leadCreatedAt: sql`excluded.lead_created_at`,
+        syncedAt: new Date(),
+      },
+    });
 
   return { fetched: leads.length };
 }

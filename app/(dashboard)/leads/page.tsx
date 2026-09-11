@@ -4,7 +4,6 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { leadIndex } from "@/db/schema";
 import { can } from "@/lib/permissions";
-import { syncLeads } from "@/lib/lead-sync";
 import LeadsTable from "./LeadsTable";
 import RefreshButton from "./RefreshButton";
 
@@ -38,17 +37,6 @@ export default async function LeadsPage({
         </p>
       </main>
     );
-  }
-
-  // Sync-on-demand (§3.2) — no cron. Fresh as of whoever last opened
-  // this page, which is fresher than any fixed polling interval anyway.
-  let syncError: string | null = null;
-  try {
-    await syncLeads();
-  } catch (err) {
-    // The feed still works from whatever's already in lead_index — a
-    // core-api hiccup makes the page stale, not broken.
-    syncError = err instanceof Error ? err.message : "Sync failed.";
   }
 
   const { page: pageParam, q, pageSize: pageSizeParam } = await searchParams;
@@ -113,13 +101,6 @@ export default async function LeadsPage({
           {session!.user.email} — {session!.user.roles?.join(", ")}
         </p>
       </div>
-
-      {syncError && (
-        <p style={{ color: "var(--danger)", fontSize: 13, marginBottom: 16 }}>
-          Couldn&apos;t sync new leads right now ({syncError}) — showing the last
-          synced data.
-        </p>
-      )}
 
       <form method="GET" style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <input type="hidden" name="pageSize" value={pageSize} />

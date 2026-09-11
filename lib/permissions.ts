@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 
@@ -14,7 +15,7 @@ export const OVERRIDE_RANK: Record<OverrideScope, number> = { none: -1, own: 0, 
  * permission overrides) can show "role default" alongside the override
  * for each capability.
  */
-export async function loadRoleGrants(userId: number): Promise<{ isSuperAdmin: boolean; grants: Map<string, Scope> }> {
+export const loadRoleGrants = cache(async (userId: number): Promise<{ isSuperAdmin: boolean; grants: Map<string, Scope> }> => {
   const result = await db.execute(sql`
     SELECT p.key AS key, rp.scope AS scope, r.is_system AS is_system, r.slug AS slug
     FROM user_roles ur
@@ -43,7 +44,7 @@ export async function loadRoleGrants(userId: number): Promise<{ isSuperAdmin: bo
   }
 
   return { isSuperAdmin, grants };
-}
+});
 
 /**
  * This user's individual permission overrides, keyed by permission key —
@@ -51,7 +52,7 @@ export async function loadRoleGrants(userId: number): Promise<{ isSuperAdmin: bo
  * including "none" (an explicit revoke). Exported for the same reason
  * as loadRoleGrants().
  */
-export async function loadOverrides(userId: number): Promise<Map<string, OverrideScope>> {
+export const loadOverrides = cache(async (userId: number): Promise<Map<string, OverrideScope>> => {
   const result = await db.execute(sql`
     SELECT p.key AS key, upo.scope AS scope
     FROM user_permission_overrides upo
@@ -60,7 +61,7 @@ export async function loadOverrides(userId: number): Promise<Map<string, Overrid
   `);
   const rows = result.rows as Array<{ key: string; scope: OverrideScope }>;
   return new Map(rows.map((r) => [r.key, r.scope]));
-}
+});
 
 /**
  * Role grants with per-user overrides layered on top — the one thing
@@ -69,7 +70,7 @@ export async function loadOverrides(userId: number): Promise<Map<string, Overrid
  * needs to see role-default and override as distinct values, not
  * already merged.
  */
-async function loadGrants(userId: number): Promise<{ isSuperAdmin: boolean; grants: Map<string, Scope> }> {
+const loadGrants = cache(async (userId: number): Promise<{ isSuperAdmin: boolean; grants: Map<string, Scope> }> => {
   const { isSuperAdmin, grants } = await loadRoleGrants(userId);
   if (isSuperAdmin) return { isSuperAdmin, grants };
 
@@ -83,7 +84,7 @@ async function loadGrants(userId: number): Promise<{ isSuperAdmin: boolean; gran
   }
 
   return { isSuperAdmin, grants };
-}
+});
 
 /**
  * Every user beneath `userId` in the reporting tree, at any depth —
@@ -91,7 +92,7 @@ async function loadGrants(userId: number): Promise<{ isSuperAdmin: boolean; gran
  * manager_id means this is the only place hierarchy depth matters;
  * inserting a Director later needs no change here (§3.5).
  */
-export async function subordinateIds(userId: number): Promise<number[]> {
+export const subordinateIds = cache(async (userId: number): Promise<number[]> => {
   const result = await db.execute(sql`
     WITH RECURSIVE subtree AS (
       SELECT id FROM users WHERE manager_id = ${userId}
@@ -101,7 +102,7 @@ export async function subordinateIds(userId: number): Promise<number[]> {
     SELECT id FROM subtree
   `);
   return (result.rows as Array<{ id: number }>).map((r) => r.id);
-}
+});
 
 /**
  * The one permission check used everywhere (§3.5).
