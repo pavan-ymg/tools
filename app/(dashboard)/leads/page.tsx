@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { desc, or, ilike, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
@@ -6,6 +7,7 @@ import { leadIndex } from "@/db/schema";
 import { can } from "@/lib/permissions";
 import LeadsTable from "./LeadsTable";
 import RefreshButton from "./RefreshButton";
+import TableSkeleton from "../TableSkeleton";
 
 // Nobody sees more than the HARD_CAP most recent leads, full stop
 // (Pavan, 2026-09-01: "no one should be able to see more than 100
@@ -15,75 +17,27 @@ const HARD_CAP = 100;
 const PAGE_SIZES = [10, 20, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZES)[number];
 const DEFAULT_PAGE_SIZE: PageSize = 20;
+const TABLE_COLUMNS = 7;
 
 function parsePageSize(raw: string | undefined): PageSize {
   const n = Number(raw);
   return (PAGE_SIZES as readonly number[]).includes(n) ? (n as PageSize) : DEFAULT_PAGE_SIZE;
 }
 
+// The shell — header, search form, page-size chips — needs nothing but
+// the URL's own searchParams, so it renders and streams to the browser
+// immediately. All the DB work (permission check, count, rows) lives in
+// <LeadsData> below, wrapped in <Suspense> so the shell doesn't wait on
+// it (§ Pavan, 2026-09-11: static shell first, data + skeleton after).
 export default async function LeadsPage({
   searchParams,
 }: {
   searchParams: Promise<{ page?: string; q?: string; pageSize?: string }>;
 }) {
   const session = await auth();
-  const userId = Number(session!.user.id);
-
-  if (!(await can(userId, "leads.view"))) {
-    return (
-      <main style={{ padding: 32 }}>
-        <p style={{ color: "var(--text-secondary)" }}>
-          You don&apos;t have permission to view the lead feed.
-        </p>
-      </main>
-    );
-  }
-
   const { page: pageParam, q, pageSize: pageSizeParam } = await searchParams;
   const pageSize = parsePageSize(pageSizeParam);
   const query = q?.trim();
-
-  const searchFilter = query
-    ? or(
-        ilike(leadIndex.name, `%${query}%`),
-        ilike(leadIndex.phone, `%${query}%`),
-        ilike(leadIndex.email, `%${query}%`),
-        ilike(leadIndex.slug, `%${query}%`)
-      )
-    : undefined;
-
-  let countQuery = db.select({ count: sql<number>`count(*)::int` }).from(leadIndex).$dynamic();
-  if (searchFilter) countQuery = countQuery.where(searchFilter);
-  const [{ count: rawCount }] = await countQuery;
-  const totalCount = Math.min(rawCount, HARD_CAP);
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const page = Math.min(Math.max(1, Number(pageParam) || 1), totalPages);
-
-  const pageUrl = (targetPage: number) =>
-    `/leads?page=${targetPage}&pageSize=${pageSize}${query ? `&q=${encodeURIComponent(query)}` : ""}`;
-
-  let leadsQuery = db.select().from(leadIndex).$dynamic();
-  if (searchFilter) leadsQuery = leadsQuery.where(searchFilter);
-  // ORDER BY + LIMIT/OFFSET bounded by totalPages (itself derived from
-  // the capped totalCount above) means offset+limit can never reach
-  // past row 100 of the most-recent-first ordering — the cap holds
-  // without a separate subquery.
-  const rows = await leadsQuery
-    .orderBy(desc(leadIndex.leadCreatedAt))
-    .limit(pageSize)
-    .offset((page - 1) * pageSize);
-
-  const leadRows = rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    phone: row.phone,
-    email: row.email,
-    domain: row.domain,
-    slug: row.slug,
-    state: row.state,
-    leadCreatedAt: row.leadCreatedAt.toISOString(),
-  }));
 
   return (
     <main style={{ padding: 32 }}>
@@ -144,27 +98,102 @@ export default async function LeadsPage({
         )}
       </form>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-          <span style={{ color: "var(--text-secondary)" }}>Show:</span>
-          {PAGE_SIZES.map((size) => (
-            <Link
-              key={size}
-              href={`/leads?pageSize=${size}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
-              className="chip"
-              style={{
-                padding: "4px 10px",
-                borderRadius: 6,
-                border: "1px solid var(--glass-border)",
-                background: pageSize === size ? "var(--accent)" : "transparent",
-                color: pageSize === size ? "var(--accent-text)" : "var(--text-secondary)",
-                textDecoration: "none",
-              }}
-            >
-              {size}
-            </Link>
-          ))}
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 12 }}>
+        <span style={{ color: "var(--text-secondary)" }}>Show:</span>
+        {PAGE_SIZES.map((size) => (
+          <Link
+            key={size}
+            href={`/leads?pageSize=${size}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
+            className="chip"
+            style={{
+              padding: "4px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--glass-border)",
+              background: pageSize === size ? "var(--accent)" : "transparent",
+              color: pageSize === size ? "var(--accent-text)" : "var(--text-secondary)",
+              textDecoration: "none",
+            }}
+          >
+            {size}
+          </Link>
+        ))}
+      </div>
+
+      <Suspense
+        key={`${pageParam ?? "1"}|${query ?? ""}|${pageSize}`}
+        fallback={<TableSkeleton columns={TABLE_COLUMNS} rows={Math.min(pageSize, 10)} />}
+      >
+        <LeadsData pageParam={pageParam} query={query} pageSize={pageSize} />
+      </Suspense>
+    </main>
+  );
+}
+
+async function LeadsData({
+  pageParam,
+  query,
+  pageSize,
+}: {
+  pageParam: string | undefined;
+  query: string | undefined;
+  pageSize: PageSize;
+}) {
+  const session = await auth();
+  const userId = Number(session!.user.id);
+
+  if (!(await can(userId, "leads.view"))) {
+    return (
+      <p style={{ color: "var(--text-secondary)" }}>
+        You don&apos;t have permission to view the lead feed.
+      </p>
+    );
+  }
+
+  const searchFilter = query
+    ? or(
+        ilike(leadIndex.name, `%${query}%`),
+        ilike(leadIndex.phone, `%${query}%`),
+        ilike(leadIndex.email, `%${query}%`),
+        ilike(leadIndex.slug, `%${query}%`)
+      )
+    : undefined;
+
+  let countQuery = db.select({ count: sql<number>`count(*)::int` }).from(leadIndex).$dynamic();
+  if (searchFilter) countQuery = countQuery.where(searchFilter);
+  const [{ count: rawCount }] = await countQuery;
+  const totalCount = Math.min(rawCount, HARD_CAP);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const page = Math.min(Math.max(1, Number(pageParam) || 1), totalPages);
+
+  const pageUrl = (targetPage: number) =>
+    `/leads?page=${targetPage}&pageSize=${pageSize}${query ? `&q=${encodeURIComponent(query)}` : ""}`;
+
+  let leadsQuery = db.select().from(leadIndex).$dynamic();
+  if (searchFilter) leadsQuery = leadsQuery.where(searchFilter);
+  // ORDER BY + LIMIT/OFFSET bounded by totalPages (itself derived from
+  // the capped totalCount above) means offset+limit can never reach
+  // past row 100 of the most-recent-first ordering — the cap holds
+  // without a separate subquery.
+  const rows = await leadsQuery
+    .orderBy(desc(leadIndex.leadCreatedAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+
+  const leadRows = rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    email: row.email,
+    domain: row.domain,
+    slug: row.slug,
+    state: row.state,
+    leadCreatedAt: row.leadCreatedAt.toISOString(),
+  }));
+
+  return (
+    <>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
         <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
           {totalCount === 0 ? "No leads" : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalCount)} of ${totalCount}`}
           {rawCount > HARD_CAP ? ` (most recent ${HARD_CAP})` : ""}
@@ -208,6 +237,6 @@ export default async function LeadsPage({
           )}
         </div>
       )}
-    </main>
+    </>
   );
 }

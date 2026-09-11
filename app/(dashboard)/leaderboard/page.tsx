@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
@@ -5,6 +6,7 @@ import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { getScope, subordinateIds } from "@/lib/permissions";
 import { getLeaderboard, type TimeWindow, type LeaderboardRow } from "@/lib/leaderboard";
+import TableSkeleton from "../TableSkeleton";
 
 const TOP_N_FOR_OWN_SCOPE = 5;
 const WINDOWS: { key: TimeWindow; label: string }[] = [
@@ -13,26 +15,61 @@ const WINDOWS: { key: TimeWindow; label: string }[] = [
   { key: "month", label: "This month" },
   { key: "all", label: "All time" },
 ];
+const TABLE_COLUMNS = 7;
 
+// Shell (title + window tabs) needs no DB access, so it renders and
+// streams immediately. The scoring computation — which touches
+// intake_records, intake_events, and lead_index — lives in
+// <LeaderboardData> behind <Suspense>, matching the same static-shell-
+// then-data pattern used on /leads (Pavan, 2026-09-11).
 export default async function LeaderboardPage({
   searchParams,
 }: {
   searchParams: Promise<{ window?: string }>;
 }) {
+  const { window: windowParam } = await searchParams;
+  const window = (WINDOWS.some((w) => w.key === windowParam) ? windowParam : "week") as TimeWindow;
+
+  return (
+    <main style={{ padding: 32 }}>
+      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Leaderboard</h1>
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+        {WINDOWS.map((w) => (
+          <Link
+            key={w.key}
+            href={`/leaderboard?window=${w.key}`}
+            className="chip"
+            style={{
+              fontSize: 13,
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "1px solid var(--glass-border)",
+              background: window === w.key ? "var(--accent)" : "transparent",
+              color: window === w.key ? "var(--accent-text)" : "var(--text-secondary)",
+              textDecoration: "none",
+            }}
+          >
+            {w.label}
+          </Link>
+        ))}
+      </div>
+
+      <Suspense key={window} fallback={<TableSkeleton columns={TABLE_COLUMNS} rows={8} />}>
+        <LeaderboardData window={window} />
+      </Suspense>
+    </main>
+  );
+}
+
+async function LeaderboardData({ window }: { window: TimeWindow }) {
   const session = await auth();
   const userId = Number(session!.user.id);
 
   const scope = await getScope(userId, "leaderboard.view");
   if (!scope) {
-    return (
-      <main style={{ padding: 32 }}>
-        <p style={{ color: "var(--text-secondary)" }}>You don&apos;t have permission to view the leaderboard.</p>
-      </main>
-    );
+    return <p style={{ color: "var(--text-secondary)" }}>You don&apos;t have permission to view the leaderboard.</p>;
   }
-
-  const { window: windowParam } = await searchParams;
-  const window = (WINDOWS.some((w) => w.key === windowParam) ? windowParam : "week") as TimeWindow;
 
   const fullBoard = await getLeaderboard(window);
 
@@ -71,30 +108,7 @@ export default async function LeaderboardPage({
   }
 
   return (
-    <main style={{ padding: 32 }}>
-      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Leaderboard</h1>
-
-      <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
-        {WINDOWS.map((w) => (
-          <Link
-            key={w.key}
-            href={`/leaderboard?window=${w.key}`}
-            className="chip"
-            style={{
-              fontSize: 13,
-              padding: "6px 12px",
-              borderRadius: 6,
-              border: "1px solid var(--glass-border)",
-              background: window === w.key ? "var(--accent)" : "transparent",
-              color: window === w.key ? "var(--accent-text)" : "var(--text-secondary)",
-              textDecoration: "none",
-            }}
-          >
-            {w.label}
-          </Link>
-        ))}
-      </div>
-
+    <>
       {scope === "own" && ownRank && (
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>
           Your rank: #{ownRank} of {fullBoard.length}
@@ -146,6 +160,6 @@ export default async function LeaderboardPage({
           <p style={{ padding: 24, color: "var(--text-secondary)", fontSize: 13 }}>No activity in this window yet.</p>
         )}
       </div>
-    </main>
+    </>
   );
 }
