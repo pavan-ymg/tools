@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -26,6 +27,17 @@ import NavLinks from "./NavLinks";
  * Deliberately NOT baked into the JWT (§3.6.3): permission-adjacent
  * account state has to take effect immediately, not survive until the
  * token expires.
+ *
+ * The nav-only permission checks (which admin links to show, the
+ * intake due-count badge) used to be awaited here too, before the
+ * `return` — since a layout's own awaits block everything below it,
+ * that meant every dashboard page waited on 3+ extra sequential DB
+ * round-trips before even its OWN Suspense boundaries could start,
+ * silently defeating the per-page skeleton work (Pavan, 2026-09-11:
+ * "pages are not loading fast, it is as it was before"). Moved into
+ * <NavData>, its own Suspense boundary, so {children} — and whatever
+ * Suspense the page itself sets up — starts streaming immediately
+ * instead of waiting on nav-only data it doesn't need.
  */
 export default async function DashboardLayout({
   children,
@@ -49,15 +61,6 @@ export default async function DashboardLayout({
     redirect("/change-password");
   }
 
-  const canManageUsers = await can(current.id, "users.manage");
-  const canManageRoles = await can(current.id, "roles.manage");
-  // Audit Log visibility is hardcoded to super_admin only, deliberately
-  // NOT tied to roles.manage — a Manager can hold that permission for
-  // day-to-day role work without also seeing this (Pavan, 2026-09-01:
-  // "not even manager").
-  const isSuperAdminUser = await isSuperAdmin(current.id);
-  const dueCount = await getDueFollowUpCount(current.id);
-
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <nav
@@ -80,12 +83,9 @@ export default async function DashboardLayout({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/ymg-legal-logo.svg" alt="YMG Legal" style={{ height: 48, width: "auto" }} />
         </Link>
-        <NavLinks
-          canManageUsers={canManageUsers}
-          canManageRoles={canManageRoles}
-          isSuperAdminUser={isSuperAdminUser}
-          dueCount={dueCount ?? 0}
-        />
+        <Suspense fallback={<NavLinks canManageUsers={false} canManageRoles={false} isSuperAdminUser={false} dueCount={0} />}>
+          <NavData userId={current.id} />
+        </Suspense>
 
         <form
           action={signOutAction}
@@ -111,4 +111,19 @@ export default async function DashboardLayout({
       <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
     </div>
   );
+}
+
+async function NavData({ userId }: { userId: number }) {
+  const [canManageUsers, canManageRoles, isSuperAdminUser, dueCount] = await Promise.all([
+    can(userId, "users.manage"),
+    can(userId, "roles.manage"),
+    // Audit Log visibility is hardcoded to super_admin only, deliberately
+    // NOT tied to roles.manage — a Manager can hold that permission for
+    // day-to-day role work without also seeing this (Pavan, 2026-09-01:
+    // "not even manager").
+    isSuperAdmin(userId),
+    getDueFollowUpCount(userId),
+  ]);
+
+  return <NavLinks canManageUsers={canManageUsers} canManageRoles={canManageRoles} isSuperAdminUser={isSuperAdminUser} dueCount={dueCount ?? 0} />;
 }
