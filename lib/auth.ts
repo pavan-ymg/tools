@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, userRoles, roles } from "@/db/schema";
+import { logAudit } from "@/lib/audit";
 
 // Weekly auto-logout, fixed to Monday midnight — not a rolling N-hour/
 // N-day window (Pavan, 2026-09-01: "remove the auto logout everyday...
@@ -105,6 +106,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (user.failedLoginCount > 0 || user.lockedUntil) {
           await db.update(users).set({ failedLoginCount: 0, lockedUntil: null }).where(eq(users.id, user.id));
         }
+
+        await logAudit(user.id, "login", "session", user.id, `${user.name} (${user.email})`, {
+          app: "tools",
+          method: "credentials",
+        }).catch(() => undefined);
 
         const grantedRoles = await db
           .select({ slug: roles.slug, isSystem: roles.isSystem })

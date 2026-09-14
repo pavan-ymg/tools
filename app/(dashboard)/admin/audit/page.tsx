@@ -7,6 +7,8 @@ import BackLink from "@/app/(dashboard)/BackLink";
 import { formatDateTime } from "@/lib/format-date";
 
 const ACTION_LABELS: Record<string, string> = {
+  login: "Logged in",
+  logout: "Logged out",
   user_invited: "Invited user",
   user_updated: "Updated user",
   user_deactivated: "Deactivated user",

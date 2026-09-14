@@ -78,6 +78,13 @@
       "when": 1789146382965,
       "tag": "0010_parched_psynapse",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789406400000,
+      "tag": "0011_login_logout_audit",
+      "breakpoints": true
     }
   ]
 }

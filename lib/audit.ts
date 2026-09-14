@@ -10,7 +10,7 @@ type AuditAction = (typeof auditActionEnum.enumValues)[number];
 export async function logAudit(
   actorId: number,
   action: AuditAction,
-  targetType: "user" | "role",
+  targetType: "session" | "user" | "role",
   targetId: number | null,
   targetLabel: string,
   detail?: Record<string, unknown>

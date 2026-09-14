@@ -247,6 +247,7 @@ export const intakeEvents = pgTable("intake_events", {
 // actor and target are captured as plain ids + a name/email snapshot
 // taken at write time, not a live join that breaks once someone's gone.
 export const auditActionEnum = pgEnum("audit_action", [
+  "login", "logout",
   "user_invited", "user_updated", "user_deactivated", "user_reactivated", "user_deleted", "user_force_reset",
   "role_created", "role_permissions_updated", "role_deleted", "user_permissions_overridden",
 ]);
