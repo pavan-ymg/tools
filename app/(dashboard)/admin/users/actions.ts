@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { eq, sql, and, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -9,6 +8,7 @@ import { can, loadRoleGrants, loadOverrides, getScope, SCOPE_RANK, OVERRIDE_RANK
 import { createAuthToken } from "@/lib/auth-tokens";
 import { sendInviteEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
+import { appBaseUrl } from "@/lib/app-url";
 
 const INVITE_TTL_MS = 72 * 60 * 60 * 1000; // §3.6.3 — 72h, survives a Friday invite over the weekend
 
@@ -43,13 +43,6 @@ export async function isSuperAdmin(targetUserId: number): Promise<boolean> {
     .where(and(eq(userRoles.userId, targetUserId), eq(roles.isSystem, true)))
     .limit(1);
   return !!row;
-}
-
-async function baseUrl(): Promise<string> {
-  const h = await headers();
-  const host = h.get("host");
-  const protocol = host?.startsWith("localhost") ? "http" : "https";
-  return `${protocol}://${host}`;
 }
 
 export type InviteResult = { error?: string; inviteUrl?: string; emailSent?: boolean };
@@ -93,7 +86,7 @@ export async function inviteUserAction(
   });
 
   const token = await createAuthToken(user.id, "invite", INVITE_TTL_MS);
-  const inviteUrl = `${await baseUrl()}/invite/${token}`;
+  const inviteUrl = `${appBaseUrl()}/invite/${token}`;
 
   // The invite URL is always returned to the admin regardless — email
   // delivery is best-effort, not the only path (e.g. before the send
@@ -168,7 +161,7 @@ export async function forceResetAction(id: number): Promise<{ resetUrl: string }
   }
 
   const token = await createAuthToken(id, "reset", 60 * 60 * 1000);
-  return { resetUrl: `${await baseUrl()}/reset-password/${token}` };
+  return { resetUrl: `${appBaseUrl()}/reset-password/${token}` };
 }
 
 // Excludes system roles (super_admin) — that role is never assignable

@@ -1,12 +1,9 @@
 import { cache } from "react";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { mergeRoleGrants, applyOverrides, scopeCovers, type RoleGrantRow, type Scope, type OverrideScope } from "@/lib/permission-logic";
 
-export type Scope = "own" | "team" | "all";
-export type OverrideScope = Scope | "none";
-
-export const SCOPE_RANK: Record<Scope, number> = { own: 0, team: 1, all: 2 };
-export const OVERRIDE_RANK: Record<OverrideScope, number> = { none: -1, own: 0, team: 1, all: 2 };
+export { SCOPE_RANK, OVERRIDE_RANK, type Scope, type OverrideScope } from "@/lib/permission-logic";
 
 /**
  * Role-derived grants only — every permission across every role a user
@@ -25,25 +22,7 @@ export const loadRoleGrants = cache(async (userId: number): Promise<{ isSuperAdm
     WHERE ur.user_id = ${userId}
   `);
 
-  const rows = result.rows as Array<{
-    key: string | null;
-    scope: Scope | null;
-    is_system: boolean;
-    slug: string;
-  }>;
-
-  const isSuperAdmin = rows.some((r) => r.is_system && r.slug === "super_admin");
-
-  const grants = new Map<string, Scope>();
-  for (const row of rows) {
-    if (!row.key || !row.scope) continue;
-    const existing = grants.get(row.key);
-    if (!existing || SCOPE_RANK[row.scope] > SCOPE_RANK[existing]) {
-      grants.set(row.key, row.scope);
-    }
-  }
-
-  return { isSuperAdmin, grants };
+  return mergeRoleGrants(result.rows as RoleGrantRow[]);
 });
 
 /**
@@ -75,15 +54,7 @@ const loadGrants = cache(async (userId: number): Promise<{ isSuperAdmin: boolean
   if (isSuperAdmin) return { isSuperAdmin, grants };
 
   const overrides = await loadOverrides(userId);
-  for (const [key, scope] of overrides) {
-    if (scope === "none") {
-      grants.delete(key);
-    } else {
-      grants.set(key, scope);
-    }
-  }
-
-  return { isSuperAdmin, grants };
+  return { isSuperAdmin, grants: applyOverrides(grants, overrides) };
 });
 
 /**
@@ -120,17 +91,7 @@ export async function can(
   const { isSuperAdmin, grants } = await loadGrants(userId);
   if (isSuperAdmin) return true;
 
-  const scope = grants.get(permissionKey);
-  if (!scope) return false;
-  if (scope === "all") return true;
-  if (recordOwnerId === undefined) return true; // non-record permission, grant existed
-
-  if (scope === "own") return recordOwnerId === userId;
-
-  // team: the record owner is this user, or anywhere in their subtree
-  if (recordOwnerId === userId) return true;
-  const ids = await subordinateIds(userId);
-  return ids.includes(recordOwnerId);
+  return scopeCovers(grants.get(permissionKey), userId, recordOwnerId, () => subordinateIds(userId));
 }
 
 /**

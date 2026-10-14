@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, userRoles, roles } from "@/db/schema";
 import { logAudit } from "@/lib/audit";
+import { FAILED_LOGIN_THRESHOLD, computeLockoutSeconds } from "@/lib/login-backoff";
 
 // Weekly auto-logout, fixed to Monday midnight — not a rolling N-hour/
 // N-day window (Pavan, 2026-09-01: "remove the auto logout everyday...
@@ -21,17 +22,6 @@ function secondsUntilNextMonday(from: Date): number {
   return Math.floor((target.getTime() - from.getTime()) / 1000);
 }
 
-// §3.6.3: "exponential backoff after ~5 failures... not a permanent
-// lock" — deliberately not a hard lockout, since that would let anyone
-// lock a colleague out by guessing their password wrong on purpose.
-const FAILED_LOGIN_THRESHOLD = 5;
-const BASE_LOCKOUT_SECONDS = 30;
-const MAX_LOCKOUT_SECONDS = 15 * 60;
-
-function computeLockoutSeconds(failedLoginCount: number): number {
-  const exponent = failedLoginCount - FAILED_LOGIN_THRESHOLD;
-  return Math.min(MAX_LOCKOUT_SECONDS, BASE_LOCKOUT_SECONDS * 2 ** exponent);
-}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {

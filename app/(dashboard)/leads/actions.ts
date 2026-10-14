@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import * as Sentry from "@sentry/nextjs";
 import { syncLeads } from "@/lib/lead-sync";
 
 // Sync used to run on every /leads render (page load, pagination, search,
@@ -11,6 +12,9 @@ export async function refreshLeadsAction(): Promise<{ error: string | null }> {
   try {
     await syncLeads();
   } catch (err) {
+    // Caught errors never reach onRequestError — report explicitly, or a
+    // broken sync only shows up as a banner someone has to notice (§5.17).
+    Sentry.captureException(err);
     return { error: err instanceof Error ? err.message : "Sync failed." };
   }
   revalidatePath("/leads");

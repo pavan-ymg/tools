@@ -1,4 +1,4 @@
-import { gte, inArray, or, sql } from "drizzle-orm";
+import { and, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { intakeRecords, intakeEvents, leadIndex, users } from "@/db/schema";
 
@@ -42,6 +42,17 @@ type LeadMatch = {
   leadCreatedAt: Date;
 };
 
+// Postgres caps a statement at 65,535 bind parameters, so an all-time
+// window with tens of thousands of records can't go into one IN (...)
+// list. Chunked lookups keep every query well under that.
+const LOOKUP_CHUNK = 1000;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
 }
@@ -51,18 +62,20 @@ async function findMatchingLeads(records: Array<{ phone: string; email: string }
   const emails = [...new Set(records.map((r) => r.email.trim().toLowerCase()).filter(Boolean))];
   if (phones.length === 0 && emails.length === 0) return new Map();
 
-  const conditions = [];
-  if (phones.length > 0) conditions.push(inArray(sql`regexp_replace(${leadIndex.phone}, '\D', '', 'g')`, phones));
-  if (emails.length > 0) conditions.push(inArray(sql`lower(${leadIndex.email})`, emails));
-
-  const rows = await db
-    .select({
-      phone: leadIndex.phone,
-      email: leadIndex.email,
-      leadCreatedAt: leadIndex.leadCreatedAt,
-    })
-    .from(leadIndex)
-    .where(or(...conditions));
+  const leadColumns = {
+    phone: leadIndex.phone,
+    email: leadIndex.email,
+    leadCreatedAt: leadIndex.leadCreatedAt,
+  };
+  const batches = await Promise.all([
+    ...chunk(phones, LOOKUP_CHUNK).map((batch) =>
+      db.select(leadColumns).from(leadIndex).where(inArray(sql`regexp_replace(${leadIndex.phone}, '\D', '', 'g')`, batch))
+    ),
+    ...chunk(emails, LOOKUP_CHUNK).map((batch) =>
+      db.select(leadColumns).from(leadIndex).where(inArray(sql`lower(${leadIndex.email})`, batch))
+    ),
+  ]);
+  const rows = batches.flat();
 
   const matches = new Map<string, LeadMatch>();
   for (const row of rows) {
@@ -91,12 +104,37 @@ async function findMatchingLeads(records: Array<{ phone: string; email: string }
  */
 export async function getLeaderboard(window: TimeWindow): Promise<LeaderboardRow[]> {
   const since = windowStart(window);
-  const records = await db.select().from(intakeRecords).where(gte(intakeRecords.createdAt, since));
+  const inWindow = gte(intakeRecords.createdAt, since);
+  const records = await db
+    .select({
+      id: intakeRecords.id,
+      ownerId: intakeRecords.ownerId,
+      stage: intakeRecords.stage,
+      phone: intakeRecords.phone,
+      email: intakeRecords.email,
+    })
+    .from(intakeRecords)
+    .where(inWindow);
   if (records.length === 0) return [];
 
-  const recordIds = records.map((r) => r.id);
+  // Events are filtered by a subquery on the same window rather than an
+  // IN list of record ids (parameter limit, see LOOKUP_CHUNK), and only
+  // the two event types scoring actually reads are fetched.
   const [events, leadMatches] = await Promise.all([
-    db.select().from(intakeEvents).where(inArray(intakeEvents.intakeRecordId, recordIds)),
+    db
+      .select({
+        intakeRecordId: intakeEvents.intakeRecordId,
+        eventType: intakeEvents.eventType,
+        detail: intakeEvents.detail,
+        createdAt: intakeEvents.createdAt,
+      })
+      .from(intakeEvents)
+      .where(
+        and(
+          inArray(intakeEvents.intakeRecordId, db.select({ id: intakeRecords.id }).from(intakeRecords).where(inWindow)),
+          inArray(intakeEvents.eventType, ["tl_reviewed", "stage_changed"])
+        )
+      ),
     findMatchingLeads(records),
   ]);
   const eventsByRecord = new Map<number, typeof events>();

@@ -1,7 +1,8 @@
-import { desc } from "drizzle-orm";
+import Link from "next/link";
+import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { auditLog } from "@/db/schema";
+import { auditLog, auditActionEnum } from "@/db/schema";
 import { isSuperAdmin } from "../users/actions";
 import BackLink from "@/app/(dashboard)/BackLink";
 import { formatDateTime } from "@/lib/format-date";
@@ -21,7 +22,28 @@ const ACTION_LABELS: Record<string, string> = {
   user_permissions_overridden: "Edited user's individual permissions",
 };
 
-export default async function AuditLogPage() {
+type AuditAction = (typeof auditActionEnum.enumValues)[number];
+const PAGE_SIZE = 50;
+
+const inputStyle = {
+  padding: "8px 12px",
+  borderRadius: 6,
+  border: "1px solid var(--glass-border)",
+  background: "rgba(0,0,0,0.2)",
+  color: "var(--text-primary)",
+  fontSize: 13,
+} as const;
+
+export default async function AuditLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; q?: string; action?: string }>;
+}) {
+  const { page: pageParam, q, action: actionParam } = await searchParams;
+  const query = q?.trim();
+  const action = (auditActionEnum.enumValues as readonly string[]).includes(actionParam ?? "")
+    ? (actionParam as AuditAction)
+    : undefined;
   const session = await auth();
   const userId = Number(session!.user.id);
 
@@ -39,7 +61,30 @@ export default async function AuditLogPage() {
     );
   }
 
-  const entries = await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(200);
+  // Not under the Lead Feed's 100-contact cap — this is super_admin-only
+  // and holds staff/admin actions, never lead contact data.
+  const filters: SQL[] = [];
+  if (action) filters.push(eq(auditLog.action, action));
+  if (query) filters.push(or(ilike(auditLog.actorLabel, `%${query}%`), ilike(auditLog.targetLabel, `%${query}%`))!);
+  const where = filters.length > 0 ? and(...filters) : undefined;
+
+  const [{ count: totalCount }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(auditLog)
+    .where(where);
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const page = Math.min(Math.max(1, Number(pageParam) || 1), totalPages);
+
+  const entries = await db
+    .select()
+    .from(auditLog)
+    .where(where)
+    .orderBy(desc(auditLog.createdAt))
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE);
+
+  const pageUrl = (targetPage: number) =>
+    `/admin/audit?page=${targetPage}${action ? `&action=${action}` : ""}${query ? `&q=${encodeURIComponent(query)}` : ""}`;
 
   return (
     <main style={{ padding: 32 }}>
@@ -48,6 +93,38 @@ export default async function AuditLogPage() {
       <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
         Every user and role management action, most recent first. Survives the deletion of either account involved.
       </p>
+
+      <form method="GET" style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        <input
+          name="q"
+          type="text"
+          defaultValue={query ?? ""}
+          placeholder="Search who or target…"
+          style={{ ...inputStyle, width: 280, maxWidth: "100%" }}
+        />
+        <select name="action" defaultValue={action ?? ""} style={inputStyle}>
+          <option value="">All actions</option>
+          {auditActionEnum.enumValues.map((a) => (
+            <option key={a} value={a}>
+              {ACTION_LABELS[a] ?? a}
+            </option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          style={{ ...inputStyle, background: "transparent", color: "var(--accent)", cursor: "pointer", padding: "8px 16px" }}
+        >
+          Filter
+        </button>
+        {(query || action) && (
+          <a href="/admin/audit" className="text-link" style={{ display: "flex", alignItems: "center", color: "var(--text-secondary)", fontSize: 13 }}>
+            Clear
+          </a>
+        )}
+        <span style={{ marginLeft: "auto", alignSelf: "center", fontSize: 13, color: "var(--text-secondary)" }}>
+          {totalCount === 0 ? "No entries" : `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, totalCount)} of ${totalCount}`}
+        </span>
+      </form>
 
       <div style={{ overflowX: "auto", border: "1px solid var(--glass-border)", borderRadius: 8 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -79,9 +156,33 @@ export default async function AuditLogPage() {
           </tbody>
         </table>
         {entries.length === 0 && (
-          <p style={{ padding: 24, color: "var(--text-secondary)", fontSize: 13 }}>No admin actions logged yet.</p>
+          <p style={{ padding: 24, color: "var(--text-secondary)", fontSize: 13 }}>
+            {query || action ? "No entries match these filters." : "No admin actions logged yet."}
+          </p>
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}>
+          {page > 1 ? (
+            <Link href={pageUrl(page - 1)} style={{ color: "var(--accent)", fontSize: 13 }}>
+              ← Prev
+            </Link>
+          ) : (
+            <span style={{ color: "var(--text-secondary)", fontSize: 13, opacity: 0.4 }}>← Prev</span>
+          )}
+          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            Page {page} of {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link href={pageUrl(page + 1)} style={{ color: "var(--accent)", fontSize: 13 }}>
+              Next →
+            </Link>
+          ) : (
+            <span style={{ color: "var(--text-secondary)", fontSize: 13, opacity: 0.4 }}>Next →</span>
+          )}
+        </div>
+      )}
     </main>
   );
 }
