@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { leadIndex } from "@/db/schema";
 import { can } from "@/lib/permissions";
+import { maskValue } from "@/lib/mask";
 import LeadsTable from "./LeadsTable";
 import RefreshButton from "./RefreshButton";
 import TableSkeleton from "../TableSkeleton";
@@ -183,8 +184,8 @@ async function LeadsData({
   const leadRows = rows.map((row) => ({
     id: row.id,
     name: row.name,
-    phone: row.phone,
-    email: row.email,
+    phone: maskValue(row.phone),
+    email: maskValue(row.email),
     domain: row.domain,
     slug: row.slug,
     state: row.state,
