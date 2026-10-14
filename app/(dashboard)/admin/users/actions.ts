@@ -180,9 +180,19 @@ export async function listAssignableRoles() {
   return db.select().from(roles).where(eq(roles.isSystem, false)).orderBy(roles.name);
 }
 
+// Excludes the super admin (any isSystem role holder): the hidden system
+// account must never be pickable as anyone's manager (Pavan, 2026-10-14,
+// same rule HRMS already follows).
 export async function listManagerCandidates(excludeUserId?: number) {
   const rows = await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.isActive, true));
-  return excludeUserId ? rows.filter((r) => r.id !== excludeUserId) : rows;
+  const hidden = await db
+    .select({ userId: userRoles.userId })
+    .from(userRoles)
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(eq(roles.isSystem, true));
+  const hiddenIds = new Set(hidden.map((h) => h.userId));
+  const visible = rows.filter((r) => !hiddenIds.has(r.id));
+  return excludeUserId ? visible.filter((r) => r.id !== excludeUserId) : visible;
 }
 
 export async function getUserRoleIds(userId: number): Promise<number[]> {
